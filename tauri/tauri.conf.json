@@ -45,7 +45,7 @@
       }
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFENkM1QTI3OTA0MkE3M0YKUldRL3AwS1FKMXBzSGVCZUJqSWNvcXNLcExuRGhlQkovcXhyTEpOTU96K2JpQytGbkZQbDZHV20K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJCQjk3NDMzRUMyRTY0MzcKUldRM1pDN3NNM1M1S3o2NFM0WjhoYjVjYkJsRXF1RXpnakZWSDNLN0Yvc0JRSWdBblV2R0llTWIK",
       "endpoints": [
         "https://github.com/lllll081926i/pihub/releases/latest/download/latest.json"
       ]
