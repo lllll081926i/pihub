@@ -1,15 +1,15 @@
 cask "pi-hub" do
-  version "1.1.1"
+  version "1.2.0"
 
   on_arm do
-    sha256 "476e188cf80491a81700829f8d63133af1148a7412033919fc598ed6be411513"
-    url "https://github.com/lllll081926i/pihub/releases/download/v#{version}/PiHub_1.1.1_aarch64.dmg",
+    sha256 "9971275c820e94f422a9ac126bd11543c25cc230bcba71ae3f14472ea376de2b"
+    url "https://github.com/lllll081926i/pihub/releases/download/v#{version}/PiHub_1.2.0_aarch64.dmg",
         verified: "github.com/lllll081926i/pihub/"
   end
 
   on_intel do
-    sha256 "2c64912f4b057ef7532ce5eeeac79b109aaee8729ba1478e40c415d7c3d8970a"
-    url "https://github.com/lllll081926i/pihub/releases/download/v#{version}/PiHub_1.1.1_x64.dmg",
+    sha256 "7bfdf2c32cb734deab074df96fdbf4852f7ce6fed8220b2a23836e18bcd9b5df"
+    url "https://github.com/lllll081926i/pihub/releases/download/v#{version}/PiHub_1.2.0_x64.dmg",
         verified: "github.com/lllll081926i/pihub/"
   end
 
