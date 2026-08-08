@@ -554,7 +554,7 @@ const WAYLAND_WEBVIEW_WORKAROUND_MAX_LEVEL: u8 = 4;
 
 #[cfg(target_os = "linux")]
 fn wayland_webview_workaround_level_path() -> Option<std::path::PathBuf> {
-    let base_dir = resolve_app_data_dir()?;
+    let base_dir = resolve_app_data_dir().ok()?;
     Some(
         base_dir
             .join("runtime")
