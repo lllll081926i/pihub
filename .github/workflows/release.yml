@@ -104,7 +104,9 @@ jobs:
             libayatana-appindicator3-dev
 
       - name: Run Rust tests
-        run: cargo test --manifest-path tauri/Cargo.toml
+        # Skip doctests: each doctest links the full lib (incl. surrealdb) and
+        # parallel linking exhausts GH runner resources (ld Bus error).
+        run: cargo test --manifest-path tauri/Cargo.toml --tests --lib
 
       - name: Run TypeScript type check
         run: pnpm exec tsc --noEmit
