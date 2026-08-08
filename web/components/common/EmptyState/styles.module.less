@@ -1,0 +1,55 @@
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-xl) var(--space-lg);
+  text-align: center;
+}
+
+.emptyStateIcon {
+  font-size: 48px;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-sm);
+}
+
+.emptyStateTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.emptyStateDescription {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.emptyStateActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+/* 紧凑模式 */
+.emptyStateCompact {
+  padding: var(--space-lg) var(--space-md);
+  gap: var(--space-sm);
+}
+
+.emptyStateCompact .emptyStateIcon {
+  font-size: 32px;
+}
+
+.emptyStateCompact .emptyStateTitle {
+  font-size: 14px;
+}
+
+.emptyStateCompact .emptyStateDescription {
+  font-size: 12px;
+}

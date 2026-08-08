@@ -1,0 +1,223 @@
+.modal {
+  :global(.ant-modal-body) {
+    padding-top: var(--space-md);
+    padding-bottom: var(--space-md);
+  }
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* 扁平分区：无卡片边框/背景/圆角，只用标题 + 底部分隔线 */
+.sectionCard {
+  padding: 0 0 var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--color-border-secondary);
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-text-primary);
+}
+
+.sectionHint {
+  display: block;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  text-align: left;
+}
+
+.fieldBlock + .fieldBlock {
+  margin-top: var(--space-sm);
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.fieldLabel {
+  display: block;
+  color: var(--color-text-primary);
+}
+
+.apiTypePanel {
+  padding: var(--space-xxs) 0;
+}
+
+.apiTypeGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  width: 100%;
+
+  :global(.ant-radio-wrapper) {
+    margin-inline-end: 0;
+    min-height: 24px;
+  }
+}
+
+.urlInput {
+  :global(.ant-input-group-addon) {
+    background: var(--color-bg-base);
+  }
+
+  :global(.ant-input) {
+    font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+  }
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.searchInput {
+  width: 250px;
+}
+
+.errorAlert {
+  margin-top: var(--space-sm);
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.summaryCard {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-xs) var(--space-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.summaryLabel {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  flex: 1;
+}
+
+.summaryValue {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  flex-shrink: 0;
+}
+
+.cleanupCard {
+  margin-top: var(--space-sm);
+  border: 1px dashed var(--color-border-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.cleanupMuted {
+  margin-top: var(--space-sm);
+  padding: var(--space-xxs) 0;
+}
+
+.tableWrap {
+  margin-top: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+
+  :global(.ant-table) {
+    background: transparent;
+  }
+
+  :global(.ant-table-thead > tr > th) {
+    background: var(--color-bg-hover);
+  }
+
+  :global(.ant-table-tbody > tr > td) {
+    background: transparent;
+  }
+}
+
+.modelIdCell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.modelIdText {
+  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+}
+
+.existingTag {
+  margin-inline-end: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+.ownedByText {
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 720px) {
+  .sectionHeader {
+    align-items: flex-start;
+    gap: var(--space-xxs);
+  }
+
+  .fieldRow {
+    grid-template-columns: 1fr;
+    gap: var(--space-xs);
+  }
+
+  .apiTypeGroup {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .searchInput {
+    width: 100%;
+  }
+
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+}

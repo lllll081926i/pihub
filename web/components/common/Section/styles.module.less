@@ -1,0 +1,75 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.sectionIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-text-primary);
+}
+
+.sectionTitleRight {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.sectionDivider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-xs) 0;
+  border: none;
+}
+
+.sectionContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* 可折叠分区 */
+.sectionCollapsible .sectionHeader {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sectionCollapsible .sectionHeader:hover .sectionTitle {
+  color: var(--ant-color-primary);
+}
+
+.sectionChevron {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-tertiary);
+  transition: transform var(--duration-normal) var(--ease-out-quart);
+}
+
+.sectionChevronOpen {
+  transform: rotate(90deg);
+}
+
+.sectionCollapseContent {
+  overflow: hidden;
+  transition: height var(--duration-normal) var(--ease-out-quart);
+}

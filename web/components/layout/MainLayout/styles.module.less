@@ -1,0 +1,137 @@
+/* Layout container: fixed left rail + content */
+.layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--color-bg-layout);
+}
+
+/* Fixed left icon rail, flush to the left edge */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 52px;
+  flex-shrink: 0;
+  padding: var(--space-md) 0;
+  background: var(--color-bg-elevated);
+  border-right: 1px solid var(--color-border);
+  z-index: 10;
+}
+
+.sidebarTop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.sidebarBottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: auto;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+/* 分组分隔线 */
+.sidebarDivider {
+  width: 24px;
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-xs) 0;
+}
+
+.navItem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--ease-out-quart),
+    background var(--duration-fast) var(--ease-out-quart);
+
+  &:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ant-color-primary);
+    outline-offset: 1px;
+  }
+
+  /* 活动状态指示条 */
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 0;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--ant-color-primary);
+    transition: height var(--duration-fast) var(--ease-out-quart);
+  }
+}
+
+.navItemActive {
+  color: var(--ant-color-primary);
+  background: var(--color-bg-selected);
+
+  &::before {
+    height: 20px;
+  }
+
+  &:hover {
+    color: var(--ant-color-primary);
+    background: var(--color-bg-selected);
+  }
+}
+
+.navIcon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Main content area: fills the rest of the window */
+.main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+}
+
+.contentArea {
+  box-sizing: border-box;
+  padding: var(--space-lg) var(--space-xl);
+  background: var(--color-bg-layout);
+  min-height: 100%;
+}
+
+.contentAreaCompact {
+  padding: var(--space-sm);
+}
+
+.contentAreaNone {
+  padding: 0;
+}
+
+/* Secondary pages (session detail) occupy full height without page chrome */
+.contentAreaSecondary {
+  padding: 0;
+  height: 100vh;
+}

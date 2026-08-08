@@ -1,0 +1,165 @@
+.groupedList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.groupSection {
+  overflow: hidden;
+  border: 1px dashed var(--color-border-secondary);
+  border-radius: 8px;
+  background: var(--color-bg-container);
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.groupTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.groupToggle {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-border-secondary);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+.groupChevron {
+  color: var(--color-text-tertiary);
+  transform: rotate(-90deg);
+  transition: transform 0.16s ease;
+  flex-shrink: 0;
+}
+
+.groupChevronOpen {
+  transform: rotate(0deg);
+}
+
+.groupLabel {
+  user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupBody {
+  padding: 0 10px 10px;
+}
+
+.groupCount {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.groupTools {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.groupToolPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-border-secondary);
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+.statusBadge {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-status-success);
+  flex-shrink: 0;
+}
+
+.groupToolAdd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px dashed var(--color-border);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: normal;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
+
+  &:hover {
+    border-color: var(--color-border-secondary);
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+}
+
+.empty {
+  padding: 24px 0;
+}
+
+@media (max-width: 720px) {
+  .groupHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .groupTools {
+    justify-content: flex-start;
+  }
+}

@@ -1,0 +1,163 @@
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.skeletonCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-container);
+  box-shadow: var(--shadow-xs);
+}
+
+.skeletonAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-hover);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeletonContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.skeletonLine {
+  height: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-hover);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+
+  &.short {
+    width: 40%;
+  }
+
+  &.medium {
+    width: 70%;
+  }
+
+  &.long {
+    width: 100%;
+  }
+}
+
+.skeletonTitle {
+  height: 20px;
+  width: 60%;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-hover);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeletonGrid {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.skeletonGrid2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.skeletonGrid3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.skeletonGrid4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.skeletonKpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-container);
+}
+
+.skeletonKpiValue {
+  height: 28px;
+  width: 60%;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-hover);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeletonKpiLabel {
+  height: 12px;
+  width: 40%;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-hover);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeletonListItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.skeletonListIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-hover);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.skeletonListContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxs);
+}
+
+.skeletonChart {
+  height: 200px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-hover);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonAvatar,
+  .skeletonLine,
+  .skeletonTitle,
+  .skeletonKpiValue,
+  .skeletonKpiLabel,
+  .skeletonListIcon,
+  .skeletonChart {
+    animation: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .skeletonGrid2,
+  .skeletonGrid3,
+  .skeletonGrid4 {
+    grid-template-columns: 1fr;
+  }
+}

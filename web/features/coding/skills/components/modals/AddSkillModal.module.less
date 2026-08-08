@@ -1,0 +1,133 @@
+.tabContent {
+  padding: 16px 0;
+}
+
+.field {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 16px;
+
+  label {
+    flex-shrink: 0;
+    width: 130px;
+    color: var(--color-text-primary);
+    font-size: 14px;
+    text-align: right;
+    padding-right: 12px;
+    padding-top: 5px;
+    line-height: 22px;
+  }
+
+  .fieldInput {
+    flex: 1;
+  }
+
+  .fieldHint {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+    line-height: 1.5;
+  }
+}
+
+.toolsSection {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.toolsLabel {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--color-text-primary);
+}
+
+.toolsHint {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
+}
+
+.toolsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.noTools {
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.repoSelector {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.urlRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  :global(.ant-input) {
+    flex: 1;
+  }
+}
+
+.repoToggle {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--color-primary);
+  }
+}
+
+.repoTagsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.repoTag {
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+
+  &:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+}
+
+.gitHints {
+  margin-top: 8px;
+  padding-left: 130px;
+
+  ul {
+    margin: 0;
+    padding-left: 16px;
+    color: var(--color-text-tertiary);
+    font-size: 12px;
+    line-height: 1.8;
+
+    li {
+      list-style-type: disc;
+    }
+  }
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}

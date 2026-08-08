@@ -1,0 +1,197 @@
+/* 共享管理页面布局样式（Skills/MCP 共用） */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.backToPi {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 5px;
+  padding: 3px 8px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.5;
+  transition:
+    color var(--duration-fast) var(--ease-out-quart),
+    background var(--duration-fast) var(--ease-out-quart);
+
+  &:hover,
+  &:focus-visible {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-border-secondary);
+    outline-offset: 1px;
+  }
+}
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-lg);
+  padding-bottom: var(--space-sm);
+}
+
+.titleBlock {
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.docsLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xxs);
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  transition:
+    color var(--duration-fast) var(--ease-out-quart),
+    background var(--duration-fast) var(--ease-out-quart);
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-border-secondary);
+    outline-offset: 2px;
+    border-radius: var(--radius-md);
+  }
+}
+
+.moreMenuTrigger {
+  width: auto;
+  padding: 0 10px;
+  gap: var(--space-xs);
+  white-space: nowrap;
+}
+
+.pageHint {
+  margin: var(--space-xs) 0 0;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0;
+}
+
+.toolbarPrimary,
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.toolbarPrimary {
+  flex: 1;
+}
+
+.toolbarSearch {
+  width: min(230px, 100%);
+}
+
+.toolbarActions {
+  justify-content: flex-end;
+}
+
+.resultCount {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 0 var(--space-xs);
+  border-radius: 999px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.content {
+  flex: 1;
+}
+
+.batchDivider {
+  display: inline-block;
+  width: 1px;
+  height: 16px;
+  background: var(--color-border);
+  margin: 0 var(--space-xxs);
+  vertical-align: middle;
+}
+
+.batchGroupEditor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.batchGroupInput {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-container);
+  color: var(--color-text-primary);
+  outline: none;
+
+  &:focus {
+    border-color: var(--color-border-secondary);
+  }
+}
+
+.batchGroupHint {
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .pageHeader,
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbarActions {
+    justify-content: flex-start;
+  }
+}

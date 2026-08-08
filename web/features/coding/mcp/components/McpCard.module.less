@@ -1,0 +1,177 @@
+.headerMetaInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.typeTag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  padding: 0 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.configSummary {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.packageVersionTag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 72px;
+  min-width: 0;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.groupTag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 120px;
+  min-width: 0;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+}
+
+.note {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.toolPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    opacity 0.16s ease;
+  border: 1px solid;
+
+  &.active {
+    background: var(--color-bg-elevated);
+    border-color: var(--color-border);
+    color: var(--color-text-secondary);
+
+    &:hover:not(:disabled) {
+      border-color: var(--color-border-secondary);
+      color: var(--color-text-primary);
+      background: var(--color-bg-hover);
+    }
+  }
+
+  &.error {
+    background: var(--color-status-error-bg);
+    border-color: var(--color-status-error-border);
+    color: var(--color-status-error);
+  }
+
+  &.inactive {
+    background: var(--color-bg-layout);
+    border-color: var(--color-border);
+    color: var(--color-text-secondary);
+
+    &:hover {
+      border-color: var(--color-border-secondary);
+      color: var(--color-text-primary);
+    }
+  }
+
+  &.readOnlyTool {
+    cursor: not-allowed;
+  }
+}
+
+.statusBadge {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-status-success);
+  flex-shrink: 0;
+
+  &.ok {
+    background: var(--color-status-success);
+  }
+
+  &.error {
+    background: var(--color-status-error);
+  }
+
+  &.pending {
+    background: var(--color-status-warning);
+  }
+}
+
+.addToolBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px dashed var(--color-border);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
+
+  &:hover {
+    border-color: var(--color-border-secondary);
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+}

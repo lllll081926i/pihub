@@ -1,0 +1,415 @@
+.collapseCard {
+  margin-bottom: 16px;
+}
+
+/* 扁平模式：嵌入页面，无 Collapse 包装 */
+.flatContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.flatHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.headerExtra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.headerRefreshControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.headerRefreshText {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.headerRefreshButton {
+  color: var(--color-text-secondary);
+}
+
+.sourceSegmented {
+  display: inline-flex;
+  flex: 0 0 auto;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--color-bg-elevated) 66%, var(--color-border));
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-bg-elevated) 72%, transparent),
+      color-mix(in srgb, var(--color-bg-container) 36%, transparent)
+    );
+  backdrop-filter: blur(22px) saturate(170%);
+  font-size: 12px;
+  box-shadow:
+    0 10px 28px color-mix(in srgb, var(--color-text-primary) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-bg-elevated) 92%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+
+  &::before,
+  &::after {
+    position: absolute;
+    pointer-events: none;
+    content: '';
+  }
+
+  &::before {
+    inset: 1px;
+    z-index: -1;
+    border-radius: inherit;
+    background:
+      linear-gradient(
+        115deg,
+        color-mix(in srgb, var(--color-bg-elevated) 58%, transparent) 0%,
+        transparent 34%,
+        color-mix(in srgb, var(--color-bg-elevated) 28%, transparent) 62%,
+        transparent 100%
+      );
+    opacity: 0.78;
+  }
+
+  &::after {
+    inset: auto 10px 3px 12px;
+    z-index: -1;
+    height: 1px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-bg-elevated) 72%, transparent);
+    opacity: 0.72;
+  }
+
+  gap: 2px;
+}
+
+.sourceSegmentButton {
+  display: inline-flex;
+  position: relative;
+  z-index: 1;
+  min-height: 23px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 560;
+  line-height: 21px;
+  letter-spacing: 0;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
+
+  span {
+    position: relative;
+    z-index: 2;
+  }
+
+  &::before,
+  &::after {
+    position: absolute;
+    border-radius: inherit;
+    pointer-events: none;
+    content: '';
+    opacity: 0;
+    transition: opacity 0.16s ease;
+  }
+
+  &::before {
+    inset: 0;
+    background:
+      radial-gradient(
+        circle at 30% 18%,
+        color-mix(in srgb, var(--color-bg-elevated) 92%, transparent) 0%,
+        color-mix(in srgb, var(--color-bg-elevated) 44%, transparent) 34%,
+        transparent 68%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-bg-elevated) 82%, transparent),
+        color-mix(in srgb, var(--color-bg-container) 50%, transparent)
+      );
+  }
+
+  &::after {
+    inset: 1px 4px auto 5px;
+    height: 7px;
+    background:
+      linear-gradient(
+        90deg,
+        transparent,
+        color-mix(in srgb, var(--color-bg-elevated) 82%, transparent) 28%,
+        color-mix(in srgb, var(--color-bg-elevated) 38%, transparent) 72%,
+        transparent
+      );
+    filter: blur(0.2px);
+  }
+
+  &:hover:not(.sourceSegmentButtonActive) {
+    background: color-mix(in srgb, var(--color-bg-elevated) 38%, transparent);
+    color: var(--color-text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-primary) 32%, var(--color-border-secondary));
+    outline-offset: 2px;
+  }
+}
+
+.sourceSegmentButtonActive {
+  border-color: color-mix(in srgb, var(--color-bg-elevated) 78%, var(--color-border));
+  color: var(--color-text-primary);
+  text-shadow: 0 1px 0 color-mix(in srgb, var(--color-bg-elevated) 62%, transparent);
+  box-shadow:
+    0 7px 18px color-mix(in srgb, var(--color-text-primary) 10%, transparent),
+    0 1px 2px color-mix(in srgb, var(--color-text-primary) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-bg-elevated) 96%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+
+  &::before,
+  &::after {
+    opacity: 1;
+  }
+}
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.toolbarMain {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toolbarLeft {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.searchInput {
+  max-width: 560px;
+}
+
+.pathFilterSelect {
+  min-width: 220px;
+  max-width: 360px;
+}
+
+.summaryText {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.statusHint {
+  display: block;
+  margin: -4px 0 10px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* 会话很多时限制高度，在组件内部滚动，避免页面被拉得很长 */
+  max-height: 560px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* 为滚动条预留空间，避免遮挡卡片右侧的操作按钮 */
+  padding-right: var(--space-sm);
+  scrollbar-gutter: stable;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border-secondary);
+  margin-top: var(--space-sm);
+}
+
+.sessionCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out-quart);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+}
+
+.sessionCardSelected {
+  background: var(--color-bg-selected);
+  border-bottom-color: var(--ant-color-primary);
+}
+
+.sessionHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.sessionCheckbox {
+  padding-top: 2px;
+}
+
+.sessionHeaderMain {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sessionTitleRow {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.sessionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessionMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.runtimeSourceTagLocal,
+.runtimeSourceTagWsl {
+  margin-inline-end: 0;
+  font-size: 11px;
+  line-height: 18px;
+  border-radius: 6px;
+}
+
+.runtimeSourceTagLocal {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-hover);
+}
+
+.runtimeSourceTagWsl {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.sessionActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.actionButton {
+  padding: 0;
+  font-size: 12px;
+}
+
+.fullListLoading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.fullListLoadingText {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.emptyState {
+  margin: 24px 0;
+}
+
+.emptyHint {
+  display: block;
+  margin-top: 10px;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+@media (max-width: 1100px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbarMain {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbarLeft {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .searchInput,
+  .pathFilterSelect {
+    max-width: none;
+    width: 100%;
+  }
+
+  .summaryText {
+    align-self: flex-start;
+  }
+}

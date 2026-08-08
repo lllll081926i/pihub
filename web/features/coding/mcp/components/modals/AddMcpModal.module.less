@@ -1,0 +1,146 @@
+.dragHandle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  color: var(--color-text-tertiary);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:hover {
+    color: var(--color-text-secondary);
+  }
+}
+
+.argRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  width: 100%;
+  align-items: center;
+
+  :global(.ant-form-item) {
+    flex: 1;
+    margin-bottom: 0;
+  }
+
+  :global(.ant-input) {
+    width: 100%;
+  }
+
+  :global(.anticon-minus-circle) {
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    flex-shrink: 0;
+
+    &:hover {
+      color: var(--color-error);
+    }
+  }
+}
+
+.kvRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  width: 100%;
+  align-items: center;
+
+  :global(.ant-form-item) {
+    margin-bottom: 0;
+  }
+
+  :global(.anticon-minus-circle) {
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    flex-shrink: 0;
+
+    &:hover {
+      color: var(--color-error);
+    }
+  }
+}
+
+.kvKey {
+  width: 40%;
+  flex-shrink: 0;
+}
+
+.kvValue {
+  flex: 1;
+}
+
+.toolsSection {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.toolsLabel {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: var(--color-text-primary);
+}
+
+.toolsHint {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
+}
+
+.toolsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.noTools {
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  :global(.ant-input) {
+    flex: 1;
+  }
+}
+
+.favoritesToggle {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--color-primary);
+  }
+}
+
+.favoritesTagsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.favoriteTag {
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+
+  &:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+}

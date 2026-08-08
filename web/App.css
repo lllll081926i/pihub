@@ -1,0 +1,339 @@
+/* CSS Variables for theming */
+:root {
+  /* Background colors */
+  --color-bg-base: #ffffff;
+  --color-bg-container: #ffffff;
+  --color-bg-layout: #fefefe;
+  --color-bg-elevated: #fafafa;
+  --color-bg-hover: #f5f5f5;
+  --color-bg-selected: #f0f7ff;
+
+  /* Text colors */
+  --color-text-primary: rgba(0, 0, 0, 0.88);
+  --color-text-secondary: rgba(0, 0, 0, 0.65);
+  --color-text-tertiary: rgba(0, 0, 0, 0.45);
+
+  /* Border colors */
+  --color-border: rgba(0, 0, 0, 0.06);
+  --color-border-secondary: rgba(0, 0, 0, 0.15);
+  --color-border-card: rgba(0, 0, 0, 0.05);
+  --color-border-card-subtle: rgba(0, 0, 0, 0.04);
+
+  /* Semantic status colors */
+  --color-status-success: #16a34a;
+  --color-status-warning: #d97706;
+  --color-status-error: #dc2626;
+  --color-status-error-bg: rgba(220, 38, 38, 0.08);
+  --color-status-error-border: rgba(220, 38, 38, 0.28);
+
+  /* Shadow base colors */
+  --color-shadow: rgba(0, 0, 0, 0.06);
+  --color-shadow-hover: rgba(0, 0, 0, 0.1);
+  --color-shadow-secondary: rgba(0, 0, 0, 0.04);
+
+  /* ===== 阴影层级（4 层） ===== */
+  /* xs: 微小元素（按钮、输入框、小标签） */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-xs-hover: 0 2px 4px rgba(0, 0, 0, 0.06);
+  /* sm: 卡片、列表项（密集列表中的重复项） */
+  --shadow-sm: 0 2px 8px var(--color-shadow);
+  --shadow-sm-hover: 0 4px 12px var(--color-shadow-hover);
+  /* md: 弹窗、抽屉、浮层 */
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --shadow-md-hover: 0 6px 20px rgba(0, 0, 0, 0.1), 0 3px 8px rgba(0, 0, 0, 0.06);
+  /* lg: 模态、大型浮层、下拉菜单 */
+  --shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+  /* 兼容性别名（旧代码引用） */
+  --shadow-card: var(--shadow-sm);
+  --shadow-card-hover: var(--shadow-sm-hover);
+  --shadow-card-sm: var(--shadow-sm);
+  --shadow-card-sm-hover: var(--shadow-sm-hover);
+  --shadow-container: var(--shadow-md);
+
+  /* ===== 间距系统（6 级，基于 4px 基准） ===== */
+  --space-xxs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+
+  /* ===== 圆角层级（4 级） ===== */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* ===== 动画曲线 ===== */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ===== 过渡时长 ===== */
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+
+  --color-scrollbar: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] {
+  /* Background colors - 4-layer hierarchy */
+  --color-bg-base: #141414;
+  --color-bg-container: #1a1a1a;
+  --color-bg-layout: #0d0d0d;
+  --color-bg-elevated: #242424;
+  --color-bg-hover: #2a2a2a;
+  --color-bg-selected: #111d2c;
+
+  /* Text colors */
+  --color-text-primary: rgba(255, 255, 255, 0.88);
+  --color-text-secondary: rgba(255, 255, 255, 0.65);
+  --color-text-tertiary: rgba(255, 255, 255, 0.45);
+
+  /* Border colors - increased contrast */
+  --color-border: rgba(255, 255, 255, 0.16);
+  --color-border-secondary: rgba(255, 255, 255, 0.24);
+  --color-border-card: rgba(255, 255, 255, 0.1);
+  --color-border-card-subtle: rgba(255, 255, 255, 0.08);
+
+  /* Semantic status colors */
+  --color-status-success: #22c55e;
+  --color-status-warning: #f59e0b;
+  --color-status-error: #f87171;
+  --color-status-error-bg: rgba(248, 113, 113, 0.12);
+  --color-status-error-border: rgba(248, 113, 113, 0.32);
+
+  /* Shadow base colors (dark: softer, avoid halo) */
+  --color-shadow: rgba(0, 0, 0, 0.4);
+  --color-shadow-hover: rgba(0, 0, 0, 0.5);
+  --color-shadow-secondary: rgba(0, 0, 0, 0.3);
+
+  /* ===== 阴影层级（暗色：更淡，避免光晕） ===== */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-xs-hover: 0 2px 4px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-sm-hover: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-md-hover: 0 6px 20px rgba(0, 0, 0, 0.55), 0 3px 8px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-card: var(--shadow-sm);
+  --shadow-card-hover: var(--shadow-sm-hover);
+  --shadow-card-sm: var(--shadow-sm);
+  --shadow-card-sm-hover: var(--shadow-sm-hover);
+  --shadow-container: var(--shadow-md);
+
+  --color-scrollbar: rgba(255, 255, 255, 0.2);
+}
+
+/* Fill window background to cover rounded corners */
+html, body {
+  background-color: var(--color-bg-container);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-scrollbar);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* KeepAlive route transition */
+.keep-alive-route {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.keep-alive-route-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 260ms var(--ease-out-quart),
+    transform 260ms var(--ease-out-quart);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .keep-alive-route,
+  .keep-alive-route-active {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Global Collapse card style */
+.ant-collapse {
+  background: var(--color-bg-container);
+  border: none;
+  border-radius: 12px;
+  box-shadow: var(--shadow-container);
+  overflow: hidden;
+}
+
+.ant-collapse > .ant-collapse-item {
+  border-bottom: none;
+}
+
+.ant-collapse .ant-collapse-panel {
+  border-top: 1px solid var(--color-border) !important;
+}
+
+.ant-collapse > .ant-collapse-item > .ant-collapse-header {
+  background: var(--color-bg-container);
+}
+
+.ant-collapse > .ant-collapse-item > .ant-collapse-content {
+  border-top: 1px solid var(--color-border-card-subtle);
+}
+
+.ant-collapse > .ant-collapse-item > .ant-collapse-content > .ant-collapse-content-box {
+  padding: 16px 20px;
+}
+
+/* ProLayout dark mode support */
+[data-theme='dark'] .ant-pro-layout {
+  background: var(--color-bg-layout);
+}
+
+[data-theme='dark'] .ant-pro-layout .ant-pro-top-nav-header {
+  background: var(--color-bg-container);
+  border-bottom-color: var(--color-border);
+}
+
+[data-theme='dark'] .ant-pro-layout .ant-pro-top-nav-header-main-left {
+  border-right-color: var(--color-border);
+}
+
+/* ProLayout header actions (right side buttons) */
+[data-theme='dark'] .ant-pro-layout .ant-pro-global-header-header-actions-item {
+  border-color: transparent;
+}
+
+[data-theme='dark'] .ant-pro-layout .ant-pro-global-header-header-actions-avatar {
+  border-color: transparent;
+}
+
+/* Ensure default buttons have proper dark mode styles */
+[data-theme='dark'] .ant-btn-default:not(.ant-btn-dangerous) {
+  background-color: transparent;
+  border-color: var(--color-border-secondary);
+  color: var(--color-text-primary);
+}
+
+[data-theme='dark'] .ant-btn-default:not(.ant-btn-dangerous):hover {
+  background-color: var(--color-bg-hover);
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+/* Fix Select dropdown popup in dark mode */
+[data-theme='dark'] .ant-select-dropdown {
+  background-color: var(--color-bg-elevated);
+}
+
+[data-theme='dark'] .ant-select-item {
+  color: var(--color-text-primary);
+}
+
+[data-theme='dark'] .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+  background-color: var(--color-bg-hover);
+}
+
+[data-theme='dark'] .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background-color: var(--color-bg-selected);
+}
+
+/* Keep tall modals within the viewport and scroll their body instead. */
+.ant-modal-wrap {
+  box-sizing: border-box;
+  padding: calc(var(--ai-modal-viewport-block-gap, 48px) / 2)
+    calc(var(--ai-modal-viewport-inline-gap, 32px) / 2);
+}
+
+.ant-modal {
+  max-width: calc(100vw - var(--ai-modal-viewport-inline-gap, 32px));
+}
+
+.ant-modal .ant-modal-content {
+  display: flex;
+  max-height: calc(100vh - var(--ai-modal-viewport-block-gap, 48px));
+  flex-direction: column;
+}
+
+.ant-modal .ant-modal-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Fix Modal in dark mode */
+[data-theme='dark'] .ant-modal-content {
+  background-color: var(--color-bg-container);
+}
+
+[data-theme='dark'] .ant-modal-header {
+  background-color: var(--color-bg-container);
+}
+
+[data-theme='dark'] .ant-modal-title {
+  color: var(--color-text-primary);
+}
+
+[data-theme='dark'] .ant-modal-close {
+  color: var(--color-text-secondary);
+  border-color: transparent;
+}
+
+[data-theme='dark'] .ant-modal-close:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-hover);
+}
+
+/* Fix Notification in dark mode */
+[data-theme='dark'] .ant-notification-notice {
+  background-color: var(--color-bg-elevated);
+}
+
+[data-theme='dark'] .ant-notification-notice-message {
+  color: var(--color-text-primary);
+}
+
+[data-theme='dark'] .ant-notification-notice-description {
+  color: var(--color-text-secondary);
+}
+
+[data-theme='dark'] .ant-notification-notice-close {
+  color: var(--color-text-secondary);
+}
+
+[data-theme='dark'] .ant-notification-notice-close:hover {
+  color: var(--color-text-primary);
+}

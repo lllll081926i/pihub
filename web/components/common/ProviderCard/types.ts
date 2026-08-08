@@ -1,0 +1,41 @@
+/**
+ * Shared types for ProviderCard component
+ */
+
+/**
+ * Unified provider display data interface
+ */
+export interface ProviderDisplayData {
+  id: string;
+  name: string;
+  sdkName: string;
+  baseUrl: string;
+}
+
+/**
+ * Unified model display data interface
+ */
+export interface ModelDisplayData {
+  id: string;
+  name: string;
+  contextLimit?: number;
+  outputLimit?: number;
+  isPrimary?: boolean;
+}
+
+/**
+ * Official model display data interface (read-only)
+ */
+export interface OfficialModelDisplayData {
+  id: string;
+  name: string;
+  isFree: boolean;
+  context?: number;
+  output?: number;
+  status?: string;
+}
+
+/**
+ * i18n prefix type for different pages
+ */
+export type I18nPrefix = 'settings' | 'pi';

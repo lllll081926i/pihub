@@ -1,0 +1,240 @@
+.pageContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.pageTitle {
+  margin: 0 8px 0 0 !important;
+  display: inline-block;
+}
+
+.headerLink {
+  font-size: 12px;
+}
+
+.pathToolbar {
+  max-width: 100%;
+}
+
+.pathLabel,
+.pathText,
+.textAction {
+  font-size: 12px;
+}
+
+.pathText {
+  max-width: min(680px, 48vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.textAction {
+  padding: 0;
+}
+
+.piSection {
+  scroll-margin-top: 84px;
+}
+
+/* 分区头部：扁平、无卡片包装，仅用分隔线和标题 */
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px !important;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--color-border-secondary);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.sectionTitleRight {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Collapse 分区标题行内样式（默认折叠的高级设置区） */
+.sectionTitleInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Collapse 分区：扁平化，去卡片边框和阴影 */
+.collapseCard {
+  margin-bottom: 0;
+
+  :global(.ant-collapse-header) {
+    padding: 8px 0 !important;
+    border-bottom: 1px solid var(--color-border);
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+
+  :global(.ant-collapse-content) {
+    background: transparent !important;
+  }
+
+  :global(.ant-collapse-content-box) {
+    padding: 12px 0 0 !important;
+  }
+}
+
+/* 分区之间的分隔线 */
+.sectionDivider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 8px 0;
+  border: none;
+}
+
+/* 扁平分区内容容器 */
+.sectionContent {
+  padding: 0;
+}
+
+.promptSection {
+  :global(.ant-collapse) {
+    margin-bottom: 0 !important;
+  }
+}
+
+/* 模型设置：去掉卡片阴影，保持轻量 */
+.modelCard {
+  background: transparent;
+  border-radius: 8px;
+  padding: 0;
+}
+
+.modelCardTitle {
+  margin: 0;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--color-border-secondary);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: 14px;
+
+  &:global(.ant-typography) {
+    margin-bottom: 0 !important;
+  }
+}
+
+.modelCardContent {
+  padding: 10px 0 0;
+}
+
+.modelSettingsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  align-items: end;
+
+  /* 表单底部不留默认 24px 间距，避免与下分区之间出现大段空白 */
+  :global(.ant-form-item) {
+    margin-bottom: 0;
+  }
+}
+
+/* 供应商列表：两列瀑布流，左右列高度独立计算 */
+.providerList {
+  columns: 2;
+  column-gap: var(--space-sm);
+
+  > * {
+    break-inside: avoid;
+    margin-bottom: var(--space-sm);
+  }
+
+  :global(.ant-card) {
+    margin-bottom: 0 !important;
+  }
+}
+
+/* 供应商列表底部操作区 */
+.providerActions {
+  margin-top: var(--space-xs);
+}
+
+.providerForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalSection {
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-bg-elevated);
+  padding: 14px 16px;
+}
+
+.modalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.advancedEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.advancedToggle {
+  margin-top: -4px;
+}
+
+.advancedToggleButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: auto;
+  padding: 0;
+}
+
+@media (max-width: 920px) {
+  .pageHeader {
+    flex-direction: column;
+  }
+
+  .pathText {
+    max-width: 100%;
+  }
+
+  .modelSettingsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .providerList {
+    columns: 1;
+  }
+
+  .modalGrid {
+    grid-template-columns: 1fr;
+  }
+}

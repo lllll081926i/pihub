@@ -1,0 +1,669 @@
+use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result};
+use serde_json::{Map, Value};
+
+use crate::coding::tools::resolve_storage_path;
+use crate::db::helpers::{db_get, db_put};
+use crate::db::schema::DbTable;
+
+const CENTRAL_DIR_NAME: &str = "skills";
+const SKILL_SETTINGS_ID: &str = "skills";
+
+fn central_repo_path_from_settings_record(record: &Value) -> Option<PathBuf> {
+    record
+        .get("central_repo_path")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .map(resolve_portable_central_repo_path)
+}
+
+fn load_authoritative_central_repo_path_sync(
+    state: &crate::SqliteDbState,
+) -> std::result::Result<Option<PathBuf>, String> {
+    state.with_conn(|conn| {
+        Ok(db_get(conn, DbTable::SkillSettings, SKILL_SETTINGS_ID)?
+            .and_then(|record| central_repo_path_from_settings_record(&record)))
+    })
+}
+
+/// Resolve the central repo path from the authoritative skill_settings record
+/// or default to app_data_dir/skills.
+pub async fn resolve_central_repo_path<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &crate::SqliteDbState,
+) -> Result<PathBuf> {
+    resolve_central_repo_path_sync(app, state)
+}
+
+/// Sync variant for backup/restore code that already runs outside async DB flows.
+pub fn resolve_central_repo_path_sync<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    state: &crate::SqliteDbState,
+) -> Result<PathBuf> {
+    // Try to get from settings first
+    let settings_result = load_authoritative_central_repo_path_sync(state);
+
+    if let Ok(Some(path)) = settings_result {
+        return Ok(path);
+    }
+
+    resolve_default_central_repo_path(app)
+}
+
+/// Resolve the default central repo path without reading user settings.
+pub fn resolve_default_central_repo_path<R: tauri::Runtime>(
+    _app: &tauri::AppHandle<R>,
+) -> Result<PathBuf> {
+    let home_dir =
+        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("failed to resolve home directory"))?;
+    Ok(home_dir.join(".agents").join(CENTRAL_DIR_NAME))
+}
+
+/// Save the central repo path to the same authoritative store that the resolver reads.
+pub async fn save_central_repo_path(state: &crate::SqliteDbState, path: &Path) -> Result<()> {
+    let storage_path = to_portable_central_repo_path(path);
+    merge_skill_settings_sqlite(
+        state,
+        serde_json::json!({
+            "central_repo_path": storage_path,
+            "updated_at": super::types::now_ms(),
+        }),
+    )
+    .map_err(|e| anyhow::anyhow!("failed to save central repo path to SQLite: {}", e))?;
+    Ok(())
+}
+
+/// Clear the custom central repo path so future reads fall back to the default path.
+pub async fn clear_central_repo_path(state: &crate::SqliteDbState) -> Result<()> {
+    state
+        .with_conn(|conn| {
+            let mut record = db_get(conn, DbTable::SkillSettings, SKILL_SETTINGS_ID)?
+                .unwrap_or_else(|| Value::Object(Map::new()));
+            let record_object = record
+                .as_object_mut()
+                .ok_or_else(|| "skill_settings payload must be an object".to_string())?;
+            record_object.remove("central_repo_path");
+            record_object.insert(
+                "updated_at".to_string(),
+                Value::Number(super::types::now_ms().into()),
+            );
+            db_put(conn, DbTable::SkillSettings, SKILL_SETTINGS_ID, &record)
+        })
+        .map_err(|e| anyhow::anyhow!("failed to clear central repo path from SQLite: {}", e))?;
+    Ok(())
+}
+
+pub(crate) fn read_skill_settings_i64_from_sqlite(
+    state: &crate::SqliteDbState,
+    key: &str,
+) -> Option<i64> {
+    state
+        .with_conn(|conn| {
+            Ok(db_get(conn, DbTable::SkillSettings, SKILL_SETTINGS_ID)?
+                .and_then(|record| record.get(key).and_then(Value::as_i64)))
+        })
+        .ok()
+        .flatten()
+}
+
+pub(crate) fn merge_skill_settings_sqlite(
+    state: &crate::SqliteDbState,
+    patch: Value,
+) -> std::result::Result<(), String> {
+    state.with_conn(|conn| {
+        let mut record = db_get(conn, DbTable::SkillSettings, SKILL_SETTINGS_ID)?
+            .unwrap_or_else(|| Value::Object(Map::new()));
+        let record_object = record
+            .as_object_mut()
+            .ok_or_else(|| "skill_settings payload must be an object".to_string())?;
+        let patch_object = patch
+            .as_object()
+            .ok_or_else(|| "skill_settings patch must be an object".to_string())?;
+        for (key, value) in patch_object {
+            record_object.insert(key.clone(), value.clone());
+        }
+        db_put(conn, DbTable::SkillSettings, SKILL_SETTINGS_ID, &record)
+    })
+}
+
+/// Ensure the central repo directory exists
+pub fn ensure_central_repo(path: &Path) -> Result<()> {
+    std::fs::create_dir_all(path).with_context(|| format!("create {:?}", path))?;
+    Ok(())
+}
+
+fn normalize_for_storage(path: &str) -> String {
+    let mut normalized = path.trim().replace('\\', "/");
+    while normalized.len() > 1 && normalized.ends_with('/') {
+        normalized.pop();
+    }
+    normalized
+}
+
+fn strip_storage_base(candidate: &str, base: &Path) -> Option<String> {
+    let candidate = normalize_for_storage(candidate);
+    let base = normalize_for_storage(&base.to_string_lossy());
+    let candidate_cmp = if cfg!(windows) {
+        candidate.to_ascii_lowercase()
+    } else {
+        candidate.clone()
+    };
+    let base_cmp = if cfg!(windows) {
+        base.to_ascii_lowercase()
+    } else {
+        base.clone()
+    };
+
+    if candidate_cmp == base_cmp {
+        return Some(String::new());
+    }
+    let prefix = format!("{}/", base_cmp);
+    if !candidate_cmp.starts_with(&prefix) {
+        return None;
+    }
+    Some(candidate[base.len()..].trim_start_matches('/').to_string())
+}
+
+fn with_storage_prefix(prefix: &str, relative_path: &str) -> String {
+    let relative_path = relative_path.trim().trim_matches('/').replace('\\', "/");
+    if relative_path.is_empty() {
+        prefix.to_string()
+    } else {
+        format!("{}/{}", prefix, relative_path)
+    }
+}
+
+pub fn to_portable_central_repo_path(path: &Path) -> String {
+    let candidate = normalize_for_storage(&path.to_string_lossy());
+
+    if let Some(config_dir) = dirs::config_dir() {
+        if let Some(relative_path) = strip_storage_base(&candidate, &config_dir) {
+            return with_storage_prefix("%APPDATA%", &relative_path);
+        }
+    }
+
+    if let Some(home_dir) = dirs::home_dir() {
+        if let Some(relative_path) = strip_storage_base(&candidate, &home_dir) {
+            return with_storage_prefix("~", &relative_path);
+        }
+    }
+
+    candidate
+}
+
+fn storage_path_looks_absolute(normalized_path: &str) -> bool {
+    normalized_path.starts_with('/')
+        || (normalized_path.len() >= 3
+            && normalized_path.as_bytes()[0].is_ascii_alphabetic()
+            && normalized_path.as_bytes()[1] == b':'
+            && normalized_path.as_bytes()[2] == b'/')
+}
+
+fn is_legacy_home_central_repo_tail(parts: &[&str], start_index: usize) -> bool {
+    let tail = &parts[start_index..];
+    if tail.len() >= 2
+        && tail[0].eq_ignore_ascii_case(".agents")
+        && tail[1].eq_ignore_ascii_case("skills")
+    {
+        return true;
+    }
+    if tail.len() >= 2
+        && tail[0].eq_ignore_ascii_case(".ai-toolbox")
+        && tail[1].eq_ignore_ascii_case("skills")
+    {
+        return true;
+    }
+    tail.first()
+        .map(|segment| segment.eq_ignore_ascii_case(".skills"))
+        .unwrap_or(false)
+}
+
+fn resolve_legacy_cross_platform_user_path(raw_path: &str) -> Option<PathBuf> {
+    let normalized = normalize_for_storage(raw_path);
+    if storage_path_looks_absolute(&normalized)
+        && std::fs::symlink_metadata(Path::new(raw_path)).is_ok()
+    {
+        return Some(PathBuf::from(raw_path));
+    }
+
+    let parts: Vec<&str> = normalized
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .collect();
+
+    let (home_relative_start, appdata_relative_start) = if parts.len() >= 3
+        && parts[0].len() == 2
+        && parts[0].as_bytes()[1] == b':'
+        && parts[1].eq_ignore_ascii_case("Users")
+    {
+        let appdata_start = if parts.len() >= 5
+            && parts[3].eq_ignore_ascii_case("AppData")
+            && parts[4].eq_ignore_ascii_case("Roaming")
+        {
+            Some(5)
+        } else {
+            None
+        };
+        (Some(3), appdata_start)
+    } else if parts.len() >= 3 && parts[0] == "Users" {
+        (Some(2), None)
+    } else if parts.len() >= 3 && parts[0] == "home" {
+        (Some(2), None)
+    } else {
+        (None, None)
+    };
+
+    if let Some(start_index) = appdata_relative_start {
+        return dirs::config_dir().map(|base| {
+            parts
+                .iter()
+                .skip(start_index)
+                .fold(base, |path, segment| path.join(segment))
+        });
+    }
+
+    home_relative_start.and_then(|start_index| {
+        if !is_legacy_home_central_repo_tail(&parts, start_index) {
+            return None;
+        }
+        dirs::home_dir().map(|base| {
+            parts
+                .iter()
+                .skip(start_index)
+                .fold(base, |path, segment| path.join(segment))
+        })
+    })
+}
+
+fn resolve_portable_central_repo_path(path: &str) -> PathBuf {
+    let normalized = path.trim().replace('\\', "/");
+    let upper = normalized.to_uppercase();
+    if normalized == "~"
+        || normalized.starts_with("~/")
+        || upper == "%APPDATA%"
+        || upper.starts_with("%APPDATA%/")
+    {
+        if let Some(resolved) = resolve_storage_path(&normalized) {
+            return resolved;
+        }
+    }
+
+    resolve_legacy_cross_platform_user_path(path).unwrap_or_else(|| PathBuf::from(path))
+}
+
+fn is_windows_reserved_name(name: &str) -> bool {
+    let upper = name.trim_end_matches([' ', '.']).to_ascii_uppercase();
+    matches!(
+        upper.as_str(),
+        "CON"
+            | "PRN"
+            | "AUX"
+            | "NUL"
+            | "COM1"
+            | "COM2"
+            | "COM3"
+            | "COM4"
+            | "COM5"
+            | "COM6"
+            | "COM7"
+            | "COM8"
+            | "COM9"
+            | "LPT1"
+            | "LPT2"
+            | "LPT3"
+            | "LPT4"
+            | "LPT5"
+            | "LPT6"
+            | "LPT7"
+            | "LPT8"
+            | "LPT9"
+    )
+}
+
+fn sanitize_windows_path_segment(segment: &str) -> String {
+    let mut sanitized = String::with_capacity(segment.len());
+
+    for ch in segment.chars() {
+        let is_invalid = matches!(ch, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*')
+            || (ch as u32) < 0x20;
+        sanitized.push(if is_invalid { '_' } else { ch });
+    }
+
+    let trimmed = sanitized.trim_matches([' ', '.']).to_string();
+    let mut normalized = if trimmed.is_empty() {
+        "unnamed-skill".to_string()
+    } else {
+        trimmed
+    };
+
+    if is_windows_reserved_name(&normalized) {
+        normalized.push('_');
+    }
+
+    normalized
+}
+
+pub fn skill_storage_dir_name(skill_name: &str) -> String {
+    let trimmed = skill_name.trim();
+    if trimmed.is_empty() {
+        return "unnamed-skill".to_string();
+    }
+
+    if cfg!(windows) {
+        sanitize_windows_path_segment(trimmed)
+    } else {
+        trimmed.to_string()
+    }
+}
+
+/// Convert a central_path to a relative path for database storage.
+/// If the path starts with the central repo dir, strip the prefix and store relative.
+/// Also handles legacy absolute paths from other platforms.
+pub fn to_relative_central_path(absolute_path: &Path, central_dir: &Path) -> String {
+    // Try to strip the central repo prefix
+    if let Ok(rel) = absolute_path.strip_prefix(central_dir) {
+        return rel.to_string_lossy().replace('\\', "/");
+    }
+    // Already relative or from another platform — extract just the file name
+    absolute_path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| absolute_path.to_string_lossy().replace('\\', "/"))
+}
+
+/// Check if a stored path looks like an absolute path from any platform.
+/// On macOS, Rust's Path::is_absolute() won't recognize Windows paths like "C:\..."
+fn is_any_platform_absolute(path: &str) -> bool {
+    // Unix absolute
+    if path.starts_with('/') {
+        return true;
+    }
+    // Windows absolute: e.g. "C:\..." or "C:/..."
+    let bytes = path.as_bytes();
+    if bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && (bytes[2] == b'\\' || bytes[2] == b'/')
+    {
+        return true;
+    }
+    false
+}
+
+/// Resolve a stored central_path (relative or legacy absolute) to an absolute path
+/// using the current central repo directory.
+pub fn resolve_skill_central_path(stored_path: &str, current_central_dir: &Path) -> PathBuf {
+    let stored = PathBuf::from(stored_path);
+
+    // If it's a native absolute path and exists, use it directly
+    if stored.is_absolute() && stored.exists() {
+        return stored;
+    }
+
+    // Detect legacy absolute paths from any platform (including cross-platform restores)
+    if is_any_platform_absolute(stored_path) {
+        // Extract the last path component (skill name) using both separators
+        let name = stored_path
+            .rsplit(|c| c == '/' || c == '\\')
+            .find(|s| !s.is_empty())
+            .unwrap_or(stored_path);
+        let normalized_name = skill_storage_dir_name(name);
+        let normalized_path = current_central_dir.join(&normalized_name);
+        if normalized_path.exists() {
+            return normalized_path;
+        }
+        return current_central_dir.join(name);
+    }
+
+    // Relative path (new format): resolve against current central dir
+    let direct_path = current_central_dir.join(&stored);
+    if direct_path.exists() || stored.components().count() > 1 {
+        return direct_path;
+    }
+
+    let normalized_name = skill_storage_dir_name(stored_path);
+    current_central_dir.join(normalized_name)
+}
+
+/// Expand portable storage aliases such as `~/...` and `%APPDATA%/...`.
+pub fn expand_home_path(input: &str) -> Result<PathBuf> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        anyhow::bail!("storage path is empty");
+    }
+    let normalized = trimmed.replace('\\', "/");
+    let upper = normalized.to_uppercase();
+    if normalized == "~"
+        || normalized.starts_with("~/")
+        || upper == "%APPDATA%"
+        || upper.starts_with("%APPDATA%/")
+    {
+        return resolve_storage_path(&normalized)
+            .context("failed to resolve storage directory alias");
+    }
+    Ok(PathBuf::from(trimmed))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::SqliteDbState;
+    use serde_json::json;
+
+    fn create_test_db() -> (tempfile::TempDir, SqliteDbState) {
+        let temp_dir = tempfile::tempdir().expect("create temp db dir");
+        let db_state = SqliteDbState::open(temp_dir.path().join("ai-toolbox.db"))
+            .expect("open sqlite test db");
+        (temp_dir, db_state)
+    }
+
+    #[test]
+    fn settings_record_empty_central_repo_path_is_missing() {
+        assert_eq!(central_repo_path_from_settings_record(&json!({})), None);
+        assert_eq!(
+            central_repo_path_from_settings_record(&json!({ "central_repo_path": "   " })),
+            None
+        );
+    }
+
+    #[test]
+    fn settings_record_central_repo_path_is_authoritative() {
+        let path = central_repo_path_from_settings_record(&json!({
+            "central_repo_path": "/tmp/ai-toolbox-skills",
+            "git_cache_cleanup_days": 10,
+        }));
+
+        assert_eq!(path, Some(PathBuf::from("/tmp/ai-toolbox-skills")));
+    }
+
+    #[test]
+    fn portable_central_repo_path_prefers_config_alias_before_home_alias() {
+        let _env_lock = crate::coding::test_env::lock();
+        let Some(config_dir) = dirs::config_dir() else {
+            return;
+        };
+        let path = config_dir.join("ai-toolbox").join("skills");
+
+        assert_eq!(
+            to_portable_central_repo_path(&path),
+            "%APPDATA%/ai-toolbox/skills"
+        );
+    }
+
+    #[test]
+    fn portable_central_repo_path_uses_home_alias() {
+        let _env_lock = crate::coding::test_env::lock();
+        let Some(home_dir) = dirs::home_dir() else {
+            return;
+        };
+        let path = home_dir.join(".agents").join("skills");
+
+        assert_eq!(to_portable_central_repo_path(&path), "~/.agents/skills");
+    }
+
+    #[test]
+    fn settings_record_expands_portable_central_repo_path() {
+        let _env_lock = crate::coding::test_env::lock();
+        let Some(home_dir) = dirs::home_dir() else {
+            return;
+        };
+        let path = central_repo_path_from_settings_record(&json!({
+            "central_repo_path": "~/.agents/skills",
+        }));
+
+        assert_eq!(path, Some(home_dir.join(".agents").join("skills")));
+    }
+
+    #[test]
+    fn settings_record_maps_legacy_windows_user_path_to_current_home() {
+        let _env_lock = crate::coding::test_env::lock();
+        let Some(home_dir) = dirs::home_dir() else {
+            return;
+        };
+        let path = central_repo_path_from_settings_record(&json!({
+            "central_repo_path": "C:\\Users\\OldUser\\.agents\\skills",
+        }));
+
+        assert_eq!(path, Some(home_dir.join(".agents").join("skills")));
+    }
+
+    #[test]
+    fn settings_record_preserves_shared_user_style_absolute_paths() {
+        let linux_shared = "/home/shared/skills";
+        let mac_shared = "/Users/Shared/skills";
+        let windows_public = "C:\\Users\\Public\\skills";
+
+        assert_eq!(
+            central_repo_path_from_settings_record(&json!({
+                "central_repo_path": linux_shared,
+            })),
+            Some(PathBuf::from(linux_shared))
+        );
+        assert_eq!(
+            central_repo_path_from_settings_record(&json!({
+                "central_repo_path": mac_shared,
+            })),
+            Some(PathBuf::from(mac_shared))
+        );
+        assert_eq!(
+            central_repo_path_from_settings_record(&json!({
+                "central_repo_path": windows_public,
+            })),
+            Some(PathBuf::from(windows_public))
+        );
+    }
+
+    #[test]
+    fn expand_home_path_supports_appdata_alias() {
+        let _env_lock = crate::coding::test_env::lock();
+        let Some(config_dir) = dirs::config_dir() else {
+            return;
+        };
+
+        let resolved =
+            expand_home_path("%APPDATA%/ai-toolbox/skills").expect("expand appdata alias");
+
+        assert_eq!(resolved, config_dir.join("ai-toolbox").join("skills"));
+    }
+
+    #[test]
+    fn expand_home_path_supports_tilde_alias() {
+        let _env_lock = crate::coding::test_env::lock();
+        let Some(home_dir) = dirs::home_dir() else {
+            return;
+        };
+
+        let resolved = expand_home_path("~/skills/demo").expect("expand tilde alias");
+        assert_eq!(resolved, home_dir.join("skills").join("demo"));
+
+        let home_only = expand_home_path("~").expect("expand bare tilde");
+        assert_eq!(home_only, home_dir);
+    }
+
+    #[test]
+    fn settings_record_does_not_read_skill_preferences_shape() {
+        let path = central_repo_path_from_settings_record(&json!({
+            "default_view_mode": "grouped",
+            "installed_tools": ["pi"],
+        }));
+
+        assert_eq!(path, None);
+    }
+
+    #[tokio::test]
+    async fn saved_central_repo_path_is_read_by_authoritative_resolver_store() {
+        let temp = tempfile::tempdir().expect("central temp dir");
+        let (_db_temp, state) = create_test_db();
+        let central_path = temp.path().join("custom-skills");
+
+        save_central_repo_path(&state, &central_path)
+            .await
+            .expect("save central repo path");
+
+        let resolved =
+            load_authoritative_central_repo_path_sync(&state).expect("load central repo path");
+        assert_eq!(resolved, Some(central_path));
+    }
+
+    #[tokio::test]
+    async fn legacy_skill_preferences_path_does_not_influence_authoritative_store() {
+        let (_db_temp, state) = create_test_db();
+        state
+            .with_conn(|conn| {
+                db_put(
+                    conn,
+                    DbTable::SkillPreferences,
+                    "default",
+                    &json!({"central_repo_path": "/Users/ralph/.skills"}),
+                )
+            })
+            .expect("seed legacy skill preferences path");
+
+        let resolved =
+            load_authoritative_central_repo_path_sync(&state).expect("load central repo path");
+
+        assert_eq!(resolved, None);
+    }
+
+    #[tokio::test]
+    async fn saving_central_repo_path_preserves_other_skill_settings_fields() {
+        let temp = tempfile::tempdir().expect("central temp dir");
+        let (_db_temp, state) = create_test_db();
+        state
+            .with_conn(|conn| {
+                db_put(
+                    conn,
+                    DbTable::SkillSettings,
+                    SKILL_SETTINGS_ID,
+                    &json!({"git_cache_cleanup_days": 7, "git_cache_ttl_secs": 120}),
+                )
+            })
+            .expect("seed existing skill settings");
+        let central_path = temp.path().join("custom-skills");
+
+        save_central_repo_path(&state, &central_path)
+            .await
+            .expect("save central repo path");
+
+        let record = state
+            .with_conn(|conn| db_get(conn, DbTable::SkillSettings, SKILL_SETTINGS_ID))
+            .expect("query skill settings")
+            .expect("skill settings record");
+
+        let expected_storage_path = to_portable_central_repo_path(&central_path);
+        assert_eq!(
+            record.get("central_repo_path").and_then(Value::as_str),
+            Some(expected_storage_path.as_str())
+        );
+        assert_eq!(
+            record.get("git_cache_cleanup_days").and_then(Value::as_i64),
+            Some(7)
+        );
+        assert_eq!(
+            record.get("git_cache_ttl_secs").and_then(Value::as_i64),
+            Some(120)
+        );
+    }
+}

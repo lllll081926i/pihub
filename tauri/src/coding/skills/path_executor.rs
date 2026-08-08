@@ -1,0 +1,143 @@
+use std::path::{Path, PathBuf};
+
+use anyhow::Result;
+
+use super::sync_engine::{
+    ensure_source_dir, ensure_source_target_not_overlapping, sync_dir_for_tool_with_overwrite,
+    validate_sync_target_preflight,
+};
+use super::types::SyncOutcome;
+
+pub fn sync_skill_to_target(
+    tool_key: &str,
+    source: &Path,
+    target: &Path,
+    overwrite: bool,
+    force_copy: bool,
+) -> Result<SyncOutcome> {
+    ensure_source_dir(source)?;
+    sync_dir_for_tool_with_overwrite(tool_key, source, target, overwrite, force_copy)
+}
+
+pub fn remove_skill_target(target_path: &str) -> Result<()> {
+    super::sync_engine::remove_path(target_path).map_err(anyhow::Error::msg)
+}
+
+pub fn remove_skill_target_checked(source: &Path, target_path: &str) -> Result<()> {
+    let target = PathBuf::from(target_path);
+    if target == source || target.starts_with(source) || source.starts_with(&target) {
+        anyhow::bail!(
+            "source and target paths overlap: source={:?}, target={:?}",
+            source,
+            target
+        );
+    }
+    if !is_direct_link_target(&target) {
+        if let Err(err) = ensure_source_target_not_overlapping(source, &target) {
+            if source.exists() {
+                return Err(err);
+            }
+        }
+    }
+
+    remove_skill_target(target_path)
+}
+
+fn is_direct_link_target(target: &Path) -> bool {
+    if std::fs::symlink_metadata(target)
+        .map(|meta| meta.file_type().is_symlink())
+        .unwrap_or(false)
+    {
+        return true;
+    }
+
+    #[cfg(windows)]
+    {
+        junction::exists(target).unwrap_or(false)
+    }
+
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
+pub fn sync_copy_target_path(source: &Path, target_path: &str) -> Result<SyncOutcome> {
+    let target = PathBuf::from(target_path);
+    sync_skill_to_target("copy", source, &target, true, true)
+}
+
+pub fn validate_skill_sync_target(source: &Path, target: &Path, force_copy: bool) -> Result<()> {
+    ensure_source_dir(source)?;
+    validate_sync_target_preflight(source, target, force_copy)
+}
+
+pub fn target_path_changed(previous_target_path: &str, next_target: &Path) -> bool {
+    let next_target_path = next_target.to_string_lossy();
+    previous_target_path.trim().to_ascii_lowercase() != next_target_path.trim().to_ascii_lowercase()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn checked_remove_deletes_direct_symlink_without_touching_source() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let source = temp.path().join("source");
+        let target = temp.path().join("target");
+        std::fs::create_dir(&source).expect("create source");
+        std::fs::write(source.join("SKILL.md"), "---\nname: valid\n---\n")
+            .expect("write source file");
+        std::os::unix::fs::symlink(&source, &target).expect("create target symlink");
+
+        remove_skill_target_checked(&source, &target.to_string_lossy())
+            .expect("remove direct link");
+
+        assert!(source.exists());
+        assert!(source.join("SKILL.md").exists());
+        assert!(std::fs::symlink_metadata(&target).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn checked_remove_rejects_parent_symlink_resolving_to_source() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let central = temp.path().join("central");
+        let runtime_skills = temp.path().join("runtime-skills");
+        let source = central.join("drools-rule-dev");
+        let target = runtime_skills.join("drools-rule-dev");
+
+        std::fs::create_dir_all(&source).expect("create source");
+        std::fs::write(source.join("SKILL.md"), "---\nname: drools-rule-dev\n---\n")
+            .expect("write source file");
+        std::os::unix::fs::symlink(&central, &runtime_skills)
+            .expect("link runtime skills to central repo");
+
+        let result = remove_skill_target_checked(&source, &target.to_string_lossy());
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("same path"));
+        assert!(source.exists());
+        assert_eq!(
+            std::fs::read_to_string(source.join("SKILL.md")).expect("source survives"),
+            "---\nname: drools-rule-dev\n---\n"
+        );
+    }
+
+    #[test]
+    fn checked_remove_allows_cleanup_when_source_is_missing() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let source = temp.path().join("missing-source");
+        let target = temp.path().join("target-copy");
+        std::fs::create_dir(&target).expect("create target");
+        std::fs::write(target.join("SKILL.md"), "---\nname: stale\n---\n")
+            .expect("write target file");
+
+        remove_skill_target_checked(&source, &target.to_string_lossy())
+            .expect("remove stale target without source");
+
+        assert!(!target.exists());
+    }
+}

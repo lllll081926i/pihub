@@ -1,0 +1,130 @@
+.hint {
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
+}
+
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+}
+
+.dot {
+  color: var(--color-border);
+}
+
+.selectAll {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 8px;
+}
+
+.count {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.group {
+  margin-bottom: 16px;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.groupName {
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.conflictBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  margin-left: 8px;
+  padding: 2px 6px;
+  background: #fff2e8;
+  color: #fa541c;
+  border-radius: 4px;
+
+  :global([data-theme="dark"]) & {
+    background: rgba(250, 84, 28, 0.15);
+  }
+}
+
+.variantTool {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+.variant {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+
+  &.selected {
+    background: rgba(24, 144, 255, 0.04);
+  }
+}
+
+.variantInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.variantPath {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-family: monospace;
+  margin-top: 2px;
+  word-break: break-all;
+}
+
+.openFolder {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: color 0.2s;
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}

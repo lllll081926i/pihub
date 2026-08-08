@@ -1,0 +1,232 @@
+//! Tool adapters for Skills module
+//!
+//! This module provides backward-compatible tool adapter functionality for the Skills feature.
+//! It wraps the shared tools module and provides Skills-specific types and functions.
+
+use std::path::PathBuf;
+
+use anyhow::Result;
+
+use crate::coding::tools::{self, BUILTIN_TOOLS};
+
+/// Legacy CustomTool type for backward compatibility with Skills
+/// This type has required fields while the new tools::CustomTool has optional fields
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct CustomTool {
+    pub key: String,
+    pub display_name: String,
+    pub relative_skills_dir: String,
+    pub relative_detect_dir: String,
+    pub created_at: i64,
+    /// Force copy mode for skills sync (instead of symlink)
+    #[serde(default)]
+    pub force_copy: bool,
+}
+
+/// Convert from shared CustomTool to skills CustomTool
+impl From<tools::CustomTool> for CustomTool {
+    fn from(tool: tools::CustomTool) -> Self {
+        CustomTool {
+            key: tool.key,
+            display_name: tool.display_name,
+            relative_skills_dir: tool.relative_skills_dir.unwrap_or_default(),
+            relative_detect_dir: tool.relative_detect_dir.unwrap_or_default(),
+            created_at: tool.created_at,
+            force_copy: tool.force_copy,
+        }
+    }
+}
+
+/// Convert from skills CustomTool to shared CustomTool
+impl From<&CustomTool> for tools::CustomTool {
+    fn from(tool: &CustomTool) -> Self {
+        tools::CustomTool {
+            key: tool.key.clone(),
+            display_name: tool.display_name.clone(),
+            relative_skills_dir: Some(tool.relative_skills_dir.clone()),
+            relative_detect_dir: Some(tool.relative_detect_dir.clone()),
+            force_copy: tool.force_copy,
+            mcp_config_path: None,
+            mcp_config_format: None,
+            mcp_field: None,
+            created_at: tool.created_at,
+        }
+    }
+}
+
+/// Tool adapter with path information (legacy type for compatibility)
+#[derive(Clone, Debug)]
+pub struct ToolAdapter {
+    pub key: &'static str,
+    pub display_name: &'static str,
+    pub relative_skills_dir: &'static str,
+    pub relative_detect_dir: &'static str,
+}
+
+/// Get all default tool adapters (built-in tools that support Skills)
+pub fn default_tool_adapters() -> Vec<ToolAdapter> {
+    BUILTIN_TOOLS
+        .iter()
+        .filter(|t| t.relative_skills_dir.is_some())
+        .filter_map(|tool| {
+            Some(ToolAdapter {
+                key: tool.key,
+                display_name: tool.display_name,
+                relative_skills_dir: tool.relative_skills_dir?,
+                relative_detect_dir: tool.relative_detect_dir?,
+            })
+        })
+        .collect()
+}
+
+/// Find adapter by key
+pub fn adapter_by_key(key: &str) -> Option<ToolAdapter> {
+    default_tool_adapters()
+        .into_iter()
+        .find(|adapter| adapter.key == key)
+}
+
+/// Runtime tool adapter (can be built-in or custom)
+#[derive(Clone, Debug)]
+pub struct RuntimeToolAdapter {
+    pub key: String,
+    pub display_name: String,
+    pub relative_skills_dir: String,
+    pub relative_detect_dir: String,
+    pub is_custom: bool,
+    /// Force copy mode for skills sync (instead of symlink)
+    pub force_copy: bool,
+}
+
+impl From<&ToolAdapter> for RuntimeToolAdapter {
+    fn from(adapter: &ToolAdapter) -> Self {
+        RuntimeToolAdapter {
+            key: adapter.key.to_string(),
+            display_name: adapter.display_name.to_string(),
+            relative_skills_dir: adapter.relative_skills_dir.to_string(),
+            relative_detect_dir: adapter.relative_detect_dir.to_string(),
+            is_custom: false,
+            force_copy: false, // Built-in tools use default (cursor handled specially in sync logic)
+        }
+    }
+}
+
+impl From<&CustomTool> for RuntimeToolAdapter {
+    fn from(tool: &CustomTool) -> Self {
+        RuntimeToolAdapter {
+            key: tool.key.clone(),
+            display_name: tool.display_name.clone(),
+            relative_skills_dir: tool.relative_skills_dir.clone(),
+            relative_detect_dir: tool.relative_detect_dir.clone(),
+            is_custom: true,
+            force_copy: tool.force_copy,
+        }
+    }
+}
+
+/// Get all tool adapters (built-in + custom)
+pub fn get_all_tool_adapters(custom_tools: &[CustomTool]) -> Vec<RuntimeToolAdapter> {
+    let mut adapters: Vec<RuntimeToolAdapter> = default_tool_adapters()
+        .iter()
+        .map(RuntimeToolAdapter::from)
+        .collect();
+
+    for tool in custom_tools {
+        adapters.push(RuntimeToolAdapter::from(tool));
+    }
+
+    adapters
+}
+
+/// Find adapter by key (supports both built-in and custom)
+pub fn runtime_adapter_by_key(
+    key: &str,
+    custom_tools: &[CustomTool],
+) -> Option<RuntimeToolAdapter> {
+    // Check built-in first
+    if let Some(adapter) = adapter_by_key(key) {
+        return Some(RuntimeToolAdapter::from(&adapter));
+    }
+    // Check custom tools
+    custom_tools
+        .iter()
+        .find(|t| t.key == key)
+        .map(RuntimeToolAdapter::from)
+}
+
+pub fn is_tool_installed_with_state(
+    db: &crate::db::SqliteDbState,
+    adapter: &RuntimeToolAdapter,
+) -> Result<bool> {
+    if adapter.is_custom {
+        return Ok(true);
+    }
+
+    if let Some(builtin) = tools::builtin_tool_by_key(&adapter.key) {
+        let runtime_tool = tools::RuntimeTool::from(builtin);
+        return Ok(tools::is_tool_installed_with_db(db, &runtime_tool));
+    }
+
+    Ok(false)
+}
+
+pub async fn is_tool_installed_with_state_async(
+    db: &crate::db::SqliteDbState,
+    adapter: &RuntimeToolAdapter,
+) -> Result<bool> {
+    if adapter.is_custom {
+        return Ok(true);
+    }
+
+    if let Some(builtin) = tools::builtin_tool_by_key(&adapter.key) {
+        let runtime_tool = tools::RuntimeTool::from(builtin);
+        return Ok(tools::is_tool_installed_with_db_async(db, &runtime_tool).await);
+    }
+
+    Ok(false)
+}
+
+/// Resolve skills path for a runtime tool
+pub fn resolve_runtime_skills_path(adapter: &RuntimeToolAdapter) -> Result<PathBuf> {
+    // Use path_utils to resolve (handles ~/  and %APPDATA%/ paths for both built-in and custom tools)
+    if let Some(resolved) = tools::path_utils::resolve_storage_path(&adapter.relative_skills_dir) {
+        return Ok(resolved);
+    }
+    // Fallback: treat as absolute path
+    Ok(PathBuf::from(&adapter.relative_skills_dir))
+}
+
+pub fn resolve_runtime_skills_path_with_state(
+    db: &crate::db::SqliteDbState,
+    adapter: &RuntimeToolAdapter,
+) -> Result<PathBuf> {
+    if let Some(builtin) = tools::builtin_tool_by_key(&adapter.key) {
+        let runtime_tool = tools::RuntimeTool::from(builtin);
+        if let Some(path) = tools::resolve_skills_path_with_db(db, &runtime_tool) {
+            return Ok(path);
+        }
+    }
+    resolve_runtime_skills_path(adapter)
+}
+
+pub async fn resolve_runtime_skills_path_async(adapter: &RuntimeToolAdapter) -> Result<PathBuf> {
+    if let Some(resolved) = tools::path_utils::resolve_storage_path(&adapter.relative_skills_dir) {
+        return Ok(resolved);
+    }
+
+    Ok(PathBuf::from(&adapter.relative_skills_dir))
+}
+
+pub async fn resolve_runtime_skills_path_with_state_async(
+    db: &crate::db::SqliteDbState,
+    adapter: &RuntimeToolAdapter,
+) -> Result<PathBuf> {
+    if let Some(builtin) = tools::builtin_tool_by_key(&adapter.key) {
+        let runtime_tool = tools::RuntimeTool::from(builtin);
+        if let Some(path) = tools::resolve_skills_path_with_db_async(db, &runtime_tool).await {
+            return Ok(path);
+        }
+    }
+
+    resolve_runtime_skills_path_async(adapter).await
+}

@@ -1,0 +1,20 @@
+.list {
+  display: grid;
+  grid-template-columns: var(--management-grid-columns, repeat(auto-fit, minmax(320px, 400px)));
+  justify-content: start;
+  gap: 10px;
+}
+
+.listAuto {
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.listFixed {
+  grid-template-columns: var(--management-grid-columns);
+}
+
+.empty {
+  padding: 24px 0;
+}

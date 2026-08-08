@@ -1,0 +1,267 @@
+.skillCard {
+  box-sizing: border-box;
+  width: 100%;
+  border-radius: 8px !important;
+  background: var(--color-bg-container) !important;
+
+  &:hover {
+    background: var(--color-bg-elevated) !important;
+  }
+}
+
+.disabledCard {
+  border-color: color-mix(in srgb, var(--color-border) 62%, var(--color-bg-layout)) !important;
+  background: color-mix(in srgb, var(--color-bg-layout) 72%, var(--color-bg-container)) !important;
+}
+
+.disabledCard .icon,
+.disabledCard .copySourceButton,
+.disabledCard .time,
+.disabledCard .groupTag,
+.disabledCard .note,
+.disabledCard .toolPill,
+.disabledCard .addToolBtn {
+  opacity: 0.48;
+}
+
+.disabledCard .skillNameText {
+  color: var(--color-text-tertiary);
+  opacity: 0.7;
+}
+
+.disabledCard .detailButton,
+.disabledCard .sourceWarningMeta {
+  opacity: 0.72;
+}
+
+.sourceWarningCard {
+  border-color: var(--color-status-warning) !important;
+  background: color-mix(in srgb, var(--color-status-warning) 8%, var(--color-bg-container)) !important;
+}
+
+.icon {
+  color: var(--color-text-secondary);
+}
+
+.clickableIcon {
+  color: var(--color-text-primary);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: 7px;
+  flex-wrap: nowrap;
+}
+
+.skillNameText {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerMetaCompact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(52%, 236px);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.detailButton {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-border-secondary);
+    outline-offset: 2px;
+  }
+}
+
+.copySourceButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-border-secondary);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+.dot {
+  color: var(--color-border);
+  flex-shrink: 0;
+}
+
+.time {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sourceWarningMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-status-warning);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.groupTag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 120px;
+  min-width: 0;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+}
+
+.note {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.toolPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    opacity 0.16s ease;
+  border: 1px solid;
+
+  &.active {
+    background: var(--color-bg-elevated);
+    border-color: var(--color-border);
+    color: var(--color-text-secondary);
+
+    &:hover:not(:disabled) {
+      border-color: var(--color-border-secondary);
+      color: var(--color-text-primary);
+      background: var(--color-bg-hover);
+    }
+  }
+
+  &.inactive {
+    background: var(--color-bg-layout);
+    border-color: var(--color-border);
+    color: var(--color-text-secondary);
+
+    &:hover {
+      border-color: var(--color-border-secondary);
+      color: var(--color-text-primary);
+    }
+  }
+
+  &.readOnlyTool {
+    cursor: not-allowed;
+  }
+}
+
+.statusBadge {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-status-success);
+  flex-shrink: 0;
+}
+
+.addToolBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px dashed var(--color-border);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
+
+  &:hover {
+    border-color: var(--color-border-secondary);
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+}

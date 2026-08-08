@@ -1,0 +1,873 @@
+# AGENTS.md - PiHub Development Guide
+
+This document provides essential information for AI coding agents working on this project.
+
+## Communication Language
+
+与用户的所有对话必须使用**中文**，包括问题澄清、方案说明、进度反馈和结果总结。代码注释和 commit message 仍使用英文。
+
+## Module Documentation
+
+主要功能模块可以在自身目录下放置 `AGENTS.md`，用于记录该模块的 `Source of Truth`、设计决策、关键流程、易错点和最小验证。修改模块代码前，如果目标目录或更近的父目录存在模块级 `AGENTS.md`，必须先阅读。
+
+### Hard Rules
+
+1. 修改任何模块目录下的文件前，若该模块目录或更近的父目录存在 `AGENTS.md`，必须先读，再设计或实现。
+2. 当一次改动引入新的非显而易见设计决策、修复未来高概率复发的问题、或重构跨文件关键流程时，应在同一任务内同步更新对应模块的 `AGENTS.md`。
+3. 根 `AGENTS.md` 只保留全局规则。模块专属内容应下沉到对应模块目录下的 `AGENTS.md`。
+4. 模块级 `AGENTS.md` 只写高价值信息：`Source of Truth`、`Why`、`关键流程`、`Gotchas`、`最小验证`。不要写文件清单、类型定义、API 清单、数据库字段表、或可被代码直接证明的事实。
+5. 当根与模块 `AGENTS.md` 冲突时，以作用域更近、语义更具体的文档为准。
+6. 新增模块级 `AGENTS.md` 时，需在本节索引中同一任务内补上入口。
+7. 模块级 `AGENTS.md` 建设处于迁移期时，根 `AGENTS.md` 中已有的高价值信息只能补充重组，不能因为下沉而删弱；确认模块文档已完整覆盖前，不要移除根中的对应规则。
+8. 后续开发中，只要遇到值得长期沉淀的知识、用户反复强调的约束、或已经复发/高风险复发的坑点，必须在同一任务内及时写回对应模块的 `AGENTS.md`，不能等“下次再整理”。
+9. 如果某条经验已经上升为跨模块通用规则、全局架构约束、或多个模块都会反复踩到的铁律，应同步写回根 `AGENTS.md`，而不是只埋在单个模块文档里。
+10. 数据库相关经验默认按全局规则处理，优先写回根 `AGENTS.md`；只有某条数据库约束严格局限于单一模块时，才在对应模块 `AGENTS.md` 补充模块特有语义。
+11. 仓库内用于给 agent 阅读的模块文档 `AGENTS.md` 不是应用运行时资源；本地开发 watcher 和类似热重载链路应尽量忽略它们，避免把文档编辑误当成代码改动。
+12. 不要把上一条误用到产品运行时 prompt 文件上。当前仓库里 Pi 的运行时 prompt 文件名就是 `AGENTS.md`；它属于真实业务数据，备份、恢复、WSL/SSH 同步和页面交互都依赖这些文件，不能按“仅 agent 文档”排除。
+13. 修改 `web/**` 中任何可见 UI、样式、布局、组件视觉、交互密度、空态、图标、颜色、字号、间距或弹窗表单前，必须先完整阅读根目录 `DESIGN.md`。没有读取 `DESIGN.md` 就不得设计方案、不得写前端 UI 代码、不得声称遵循项目设计系统。
+
+### Template
+
+- `docs/module-agents-template.md`：模块级 `AGENTS.md` 模板。新增模块文档时先复制，再删除不适用小节。
+
+### Index
+
+| 模块目录 | 说明 |
+|---------|------|
+| `tauri/src/coding/` | Coding 域共享规则：runtime location、事件驱动托盘、跨工具 CLI/路径语义 |
+| `tauri/src/coding/mcp/` | MCP Server 后端存储、工具配置同步与导入导出 |
+| `tauri/src/coding/pi/` | Pi CLI 后端配置、root、settings/auth/models、prompt、扩展与托盘 |
+| `tauri/src/coding/session_manager/` | 会话浏览、详情、重命名、导入导出与运行时路径解析（仅 pi） |
+| `tauri/src/coding/skills/` | Skills 中央仓库、导入发现、同步与托盘 |
+| `tauri/src/coding/tools/` | Skills/MCP 共用工具适配、检测与自定义工具存储 |
+| `tauri/resources/` | 编译期嵌入的模型默认数据资源：`preset_models.json` 的来源、顺序语义与缓存边界 |
+| `web/features/coding/mcp/` | MCP 前端页面、服务器管理、导入流程与工具同步交互 |
+| `web/features/coding/pi/` | Pi 前端页面、配置路径、provider、prompt 与模型交互 |
+| `web/features/coding/shared/` | coding 共享前端语义：根目录弹窗、全局 prompt、会话面板、Model 对话框、Magic Context |
+| `web/features/coding/skills/` | Skills 前端页面、中央仓库视角、分组展示与批量同步交互 |
+| `web/components/common/` | 共享编辑器与基础交互组件的性能和正确性约束 |
+
+后续新增模块级 `AGENTS.md` 时，继续在此表追加，不在根文档其他位置零散登记。
+
+## Design System
+
+- 根目录 `DESIGN.md` 是 PiHub 的视觉设计系统 Source of Truth，给 AI coding agents 阅读，不是应用运行时资源。
+- 任何前端 UI 相关任务都必须先读 `DESIGN.md`，再读目标模块 `AGENTS.md`，最后再设计或实现。只读模块 `AGENTS.md`、只看现有代码、或凭通用审美直接改 UI，都不合格。
+- 如果无法读取 `DESIGN.md`，必须先停下来说明阻塞；不能继续设计 UI、不能写样式、不能用“保持现有风格”作为替代。
+- `AGENTS.md` 负责工程规则、模块边界、行为语义和验证要求；`DESIGN.md` 负责视觉调性、设计 token、组件形态、布局密度和 Do / Don't。
+- 当 `DESIGN.md` 与模块级 `AGENTS.md` 冲突时，以更具体的模块行为约束为准；颜色、密度、圆角、层级和组件视觉默认继续遵循 `DESIGN.md`。
+- 本地开发 watcher、热重载、备份、恢复、WSL/SSH 同步和产品运行时 prompt 链路不要把根目录 `DESIGN.md` 当成业务数据处理。
+
+### How To Use `DESIGN.md`
+
+1. **读取顺序**：涉及 `web/**` 可见 UI 时，先完整阅读根目录 `DESIGN.md`，再阅读目标目录最近的模块级 `AGENTS.md`，最后阅读相关实现文件。
+2. **方案阶段**：UI 方案必须显式映射到 `DESIGN.md` 中的调性、布局密度、颜色/token、字体层级、组件形态和 Do / Don't；不能只写“参考现有风格”。
+3. **实现阶段**：颜色、边框、阴影、圆角、间距、状态色和主题适配优先使用 `DESIGN.md` 指向的 `web/App.css` CSS 变量和 Ant Design token；不要在 feature 代码里新增一套局部视觉系统。
+4. **冲突处理**：如果 `DESIGN.md` 与模块级 `AGENTS.md` 或现有业务语义冲突，先保留更具体的模块行为约束，并在结果说明中指出视觉规则如何取舍；不要静默覆盖模块语义。
+5. **验收检查**：完成 UI 改动后，至少自查亮色、暗色、system theme、长文本、空态、加载态、hover/active/disabled/selected 状态，以及是否出现卡片套卡片、硬编码颜色或布局跳动。
+6. **维护校验**：修改 `DESIGN.md` 本身时，必须运行 `pnpm design:lint`。该命令封装 Google `@google/design.md` CLI 的 `designmd lint DESIGN.md`，用于检查 DESIGN.md 格式、frontmatter token 和可被工具识别的设计规范问题。仅修改业务 UI 代码时不强制运行它，除非同时改了 `DESIGN.md`。
+
+## Project Overview
+
+PiHub is a cross-platform desktop application built with:
+- **Frontend**: React 19 + TypeScript 5 + Ant Design 6 + Vite 7
+- **Backend**: Tauri 2.x + Rust
+- **Database**: SQLite JSONB primary store; SurrealDB is only used for one-time legacy import
+- **Package Manager**: pnpm
+
+## Directory Structure
+
+```
+ai-toolbox/
+├── web/                    # Frontend source code
+│   ├── app/                # App entry, routes, providers
+│   ├── components/         # Shared components
+│   ├── features/           # Feature modules
+│   │   └── coding/         # Coding tools (pi, skills, mcp)
+│   ├── stores/             # Zustand state stores
+│   ├── i18n/               # i18next localization
+│   ├── constants/          # Module configurations
+│   ├── hooks/              # Global hooks
+│   ├── services/           # API services
+│   └── types/              # Global type definitions
+├── tauri/                  # Rust backend
+│   ├── src/                # Rust source
+│   │   └── coding/         # Coding modules (pi, skills, mcp)
+│   └── Cargo.toml          # Rust dependencies
+└── package.json            # Frontend dependencies
+```
+
+## Build & Development Commands
+
+### Frontend (pnpm)
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start development server (frontend only)
+pnpm dev
+
+# Build frontend for production
+pnpm build
+
+# Type check
+pnpm tsc --noEmit
+
+# Lint the agent-readable design system
+pnpm design:lint
+```
+
+### Tauri (Full App)
+
+```bash
+# Start full app in development mode
+pnpm tauri dev
+
+# Build production app
+pnpm tauri build
+```
+
+### Rust (Backend)
+
+```bash
+# Check Rust code
+cd tauri && cargo check
+
+# Build Rust in release mode
+cd tauri && cargo build --release
+
+# Format Rust code
+cd tauri && cargo fmt
+
+# Lint Rust code
+cd tauri && cargo clippy
+```
+
+### Testing
+
+```bash
+# Frontend tests
+pnpm test
+
+# Run single test file
+node --test web/test/path/to/test.test.ts
+
+# Rust tests
+cd tauri && cargo test
+
+# Run single Rust test
+cd tauri && cargo test test_name
+```
+
+### Test Execution Rules
+
+- 对跨模块、跨层、会影响“保存/应用/同步/恢复/导入导出/配置落盘”的**大功能迭代**，不要只跑针对性测试；在交付前必须补跑当前仓库可用的全量测试集合。
+- 当前仓库前端测试统一通过 `pnpm test` 执行；该脚本会发现并运行 `web/test/**` 下的 `.test.ts` / `.spec.ts` 文件。
+- 前端测试文件必须放在 `web/test/` 下，并镜像对应功能目录结构；不要把 `.test.ts` 文件继续与实现文件并排放在 `web/features/**`、`web/components/**` 等源码目录里。
+  - 例如：`web/features/coding/pi/components/foo.ts` 对应测试应放在 `web/test/features/coding/pi/components/foo.test.ts`
+- Rust 测试保持分层约定：
+  - 依赖模块私有实现的单元测试，继续放在 `tauri/src/**` 的 `#[cfg(test)]` / `#[test]` 中
+  - 面向公开行为或黑盒回归的集成测试，放在 `tauri/tests/**`，并按功能镜像组织目录与 fixtures
+- Windows 上 Rust 集成测试二进制也需要 common-controls v6 manifest；`tauri/build.rs` 会给 test targets 注入该 manifest，避免 `tauri-plugin-dialog` / `TaskDialogIndirect` 在 `cargo test` 启动阶段弹出入口点错误。单元测试还会在 `cfg(test)` 下避免链接 dialog 插件本身。不要移除这两处处理，除非同时验证 `cargo test` 不再弹系统错误框。
+- 当前仓库全量校验的最小集合是：
+  - `pnpm test`
+  - `cd tauri && cargo test`
+  - `pnpm exec tsc --noEmit`
+- 发版相关 GitHub Actions 仍必须跑同一套全量测试闸门；为缩短整体耗时，打包 job 可以与测试 job 并行，但发布收尾、更新元数据或对外宣布可用必须依赖测试与打包全部成功。
+- GitHub Actions cache 有分支/tag 作用域隔离。不同 release tag 之间不能互相恢复缓存；发版 workflow 不要使用 Rust target cache，即使是 restore-only，也避免旧缓存恢复失败直接阻断打包。
+- 如果本轮改动直接影响前端构建入口、路由、公共组件、i18n 资源、Vite/TS 配置，且成本可接受，还应额外跑：
+  - `pnpm build`
+- 如果全量测试中存在**与本轮改动无关的既有失败**，不要跳过不报；需要在结果总结里明确写出：
+  - 跑了哪些命令
+  - 哪些通过
+  - 哪些失败
+  - 失败是否为本轮新增
+  - 失败定位到的文件或测试名
+- 如果本轮只改一个非常局部的点，但用户明确要求“全量测试”或“完整验证”，仍然按上面的全量集合执行，而不是自行降级为 smoke test。
+- 新增或修复高价值回归时，应优先补**最贴近用户路径**的自动化用例；不要只补实现细节测试而漏掉“表单提交 -> 持久化 -> 再读取”这类关键往返语义。
+
+## Code Style Guidelines
+
+### TypeScript/React
+
+#### Ant Design 6 Notes
+
+- Ant Design 官方中文组件文档入口优先使用 `https://ant.design/components/<component>-cn`；本仓库当前可参考的新组件入口包括 `https://ant.design/components/border-beam-cn`。
+- `BorderBeam` 是 Ant Design 6.4.0 起提供的装饰性边框流光组件，用于强调少量关键容器或高亮状态；不要用它替代普通卡片、表单、Modal section 或高密度列表里的常规 `border` 样式。
+- 使用 `BorderBeam` 前必须先确认交互价值：如果只是普通信息分组，继续使用 `border: 1px solid var(--color-border)` 和现有 section/card 样式；如果用于长期动画效果，还要考虑 `prefers-reduced-motion` 或等效降级。
+- `https://ant.design/components/_util-cn` 不是视觉组件页，主要记录公开 TypeScript 工具类型：`GetRef`、`GetProps`、`GetProp`。当需要抽取 antd 组件的 ref、props 或单个 prop 类型时，优先从 `antd` 导入这些类型，不要引用 `antd/es/**/_util` 内部路径，也不要手写重复类型。
+- `ConfigProvider` 的全局配置入口已经在 `web/app/providers.tsx`，当前负责 `locale`、亮暗主题 `algorithm` 和 `colorPrimary`。新增全局 antd 配置时优先集中改这里，不要在业务页面随手套第二层全局 `ConfigProvider`。
+- `ConfigProvider` 的 `theme.components`、组件默认配置、`componentSize`、`variant`、`warning`、`getPopupContainer` 等能力只有在出现跨页面重复需求时才全局化；单个页面的视觉差异仍应局部处理，避免全局副作用。
+- 静态 `Modal` / `message` / `notification` 默认拿不到 React context。当前仓库优先使用 `<App>` + `App.useApp()`；只有无法进入 React 组件树的静态调用，才考虑 `ConfigProvider.config({ holderRender })` 这类全局静态方法配置。
+
+#### Imports Order
+1. React and React-related imports
+2. Third-party libraries (antd, react-router-dom, etc.)
+3. Internal aliases (`@/...`)
+4. Relative imports
+5. Style imports (`.less`, `.css`)
+
+```typescript
+// Example
+import React from 'react';
+import { Layout, Tabs } from 'antd';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { MODULES } from '@/constants';
+import { useAppStore } from '@/stores';
+import styles from './styles.module.less';
+```
+
+#### Naming Conventions
+- **Components**: PascalCase (`MainLayout.tsx`)
+- **Hooks**: camelCase with `use` prefix (`useAppStore.ts`)
+- **Stores**: camelCase with `Store` suffix (`appStore.ts`)
+- **Services**: camelCase with `Service` suffix (`noteService.ts`)
+- **Types/Interfaces**: PascalCase (`interface AppState {}`)
+- **Constants**: SCREAMING_SNAKE_CASE for values, PascalCase for configs
+
+#### Component Structure
+```typescript
+import React from 'react';
+
+interface Props {
+  // Props interface
+}
+
+const ComponentName: React.FC<Props> = ({ prop1, prop2 }) => {
+  // Hooks first
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  
+  // State and derived values
+  const [state, setState] = React.useState();
+  
+  // Effects
+  React.useEffect(() => {}, []);
+  
+  // Handlers
+  const handleClick = () => {};
+  
+  // Render
+  return <div />;
+};
+
+export default ComponentName;
+```
+
+#### Zustand Stores
+
+Use Zustand without persistence middleware - all data must go through the service layer to the backend database:
+
+```typescript
+interface SettingsState {
+  settings: AppSettings | null;
+  initSettings: () => Promise<void>;
+  updateSettings: (settings: AppSettings) => Promise<void>;
+}
+
+export const useSettingsStore = create<SettingsState>()((set) => ({
+  settings: null,
+
+  initSettings: async () => {
+    const settings = await getSettings(); // Call service API
+    set({ settings });
+  },
+
+  updateSettings: async (newSettings) => {
+    await saveSettings(newSettings); // Save to database
+    set({ settings: newSettings });
+  },
+}));
+```
+
+**Never use persist middleware** - all persistent data must be stored in the backend database via Tauri commands.
+
+#### Path Aliases
+Use `@/` for imports from `web/` directory:
+```typescript
+import { useAppStore } from '@/stores';
+import { MODULES } from '@/constants';
+```
+
+### Rust
+
+#### Naming Conventions
+- **Functions/Methods**: snake_case
+- **Structs/Enums**: PascalCase
+- **Constants**: SCREAMING_SNAKE_CASE
+- **Modules**: snake_case
+
+#### Tauri Commands
+```rust
+#[tauri::command]
+fn command_name(param: &str) -> Result<ReturnType, String> {
+    // Implementation
+    Ok(result)
+}
+```
+
+#### Error Handling
+- Use `thiserror` for custom errors
+- Return `Result<T, String>` for Tauri commands
+- Use `?` operator for error propagation
+- Startup database compatibility errors must not fall through to `panic!`. In particular, when SQLite `user_version` is newer than the current `TARGET_SCHEMA_VERSION`, show a clear blocking error dialog and exit instead of trying to downgrade or crashing.
+
+#### HTTP / TLS Compatibility
+
+- 后端发起 HTTPS 请求时，默认优先复用仓库里的全局 `http_client`，不要在业务模块里随手 new 一个默认 `reqwest::Client`。
+- 当前仓库的全局 `http_client` 需要显式使用 `rustls` TLS 后端；不要回退到 Windows Schannel / native-tls 默认行为。
+- 原因不是“风格统一”，而是实战兼容性：某些机器上 `reqwest + Schannel` 会在 TLS 建连阶段直接报 `SEC_E_NO_CREDENTIALS` / “安全包中没有可用的凭证”，表现为浏览器、Node、curl 正常，但 Rust `send()` 在真正发出业务请求前就失败。
+- 如果新增特殊 HTTP client（自定义 timeout、禁压缩、直连、HTTP/1 only 等），也必须在同一 builder 链路里显式保留 `use_rustls_tls()`，不要只复制 timeout / proxy / compression 配置而漏掉 TLS 后端。
+
+#### Linux AppImage WebView Compatibility
+
+- 新版 Fedora/Arch/CachyOS 等发行版上，AppImage 内置的 Wayland/EGL/GBM 相关库可能与宿主 Mesa/Wayland ABI 冲突，导致 WebKitGTK webview 白屏或 EGL 初始化崩溃；这不是前端资源缺失，也不应只靠升级 Tauri 来判断解决。
+- AppImage + Wayland 的启动级兼容处理必须发生在 Tauri/WebKitGTK 初始化之前；优先用系统 `libwayland-client.so.0` 做一次性 `LD_PRELOAD` re-exec，再继续走 WebKitGTK GPU/DMABuf fallback level。
+- 系统 `libwayland-client.so.0` 搜索路径必须覆盖常见 x86_64 和 aarch64 Debian/Ubuntu multiarch 路径，不能只写 `/usr/lib64` 或 x86_64 专用路径。
+- 不要覆盖用户显式设置的 `LD_PRELOAD`，并且必须有 sentinel 环境变量防止重启循环；`AI_TOOLBOX_DISABLE_WAYLAND_WEBVIEW_WORKAROUND=1` 应禁用这类启动兼容处理。
+- Linux 发版如果新增或调整 AppImage 兼容策略，应同时确认 release workflow 的 Linux 产物覆盖 Fedora 用户可安装的 `rpm`，而不是只发布 `deb` 和 `AppImage`。
+
+#### Async Runtime Safety
+
+- **Never call `tauri::async_runtime::block_on()` or `tokio::runtime::Handle::block_on()` inside any async call chain.**
+  This includes Tauri commands, startup tasks spawned by `tauri::async_runtime::spawn`, event listeners, background sync tasks, and any helper that may be reached from those paths.
+- If a sync Rust helper needs database-backed or other async-derived data, do not hide the async query inside the sync helper. Provide a parallel `*_async` function and make async call sites use it directly.
+- When reviewing a sync helper that internally queries the database with `block_on`, treat it as **sync-boundary only**. Before reusing it, first verify whether the caller may run under Tokio/Tauri async runtime.
+- For path/config resolution utilities, prefer this rule:
+  sync callers use `*_sync` or pure sync helpers; async callers use `*_async`; do not mix them.
+- If you fix a high-value engineering pitfall that is likely to recur, you should also update this `AGENTS.md` in the same task so the rule becomes part of repo workflow guidance.
+- For cross-platform restore or backup flows that normalize on-disk directory names, do not only fix extracted file paths. Any persisted metadata still used by later sync, tray, WSL, or SSH flows, such as `skill.name` and `central_path`, must be normalized in the same task or a startup migration before those flows run.
+- When a settings/status API returns the primary config plus derived diagnostic metadata, do not let best-effort metadata resolution break the primary read path. For example, WSL/SSH `module_statuses`, tray visibility hints, or runtime-location summaries must degrade gracefully with logs instead of making the whole settings payload fail.
+
+#### Optional Field And Compatibility Rules
+
+- For optional config fields, do not use simple truthy checks like `if (values.someField) { ... }` when saving edited data. This collapses "user intentionally cleared the field" into "field was absent" and leaves stale values behind.
+- When a form edits persisted data that already allows partial optional structures, the form layer must not be stricter than the storage model unless a migration is handled in the same task.
+- Before adding paired validation such as "both filled or both empty", first verify backend types, existing imported data, restore flows, and edit flows. If stored data already permits one-sided values, blocking save in the form is a regression.
+- When removing or clearing provider-derived env/config keys, explicitly clean known keys before merging newly selected values. Do not assume omission in the new payload will delete old values automatically.
+- For tools whose runtime config file mixes PiHub-managed fields with runtime-owned fields, rewrites must remove the previous PiHub-managed fields first, then write the new managed fields. Do not preserve previous managed fields by default.
+- When a database update immediately reapplies managed configuration to runtime files, capture the previous database record before overwriting it and pass that snapshot into cleanup explicitly. Re-querying the applied row after `put`/`update` returns the new record, so removed model keys, renamed fields, and cleared sections cannot be identified and will remain stale on disk.
+- For third-party config nodes that PiHub does not fully own, preserve unknown fields and legal schema shapes across read -> write round trips. If a field allows multiple valid forms such as `string | tuple`, `bool | object`, or `string | string[]`, do not normalize it to a narrower shape unless the task explicitly migrates user data and tests that migration.
+- In Pi `settings.json`, explicitly preserve runtime-owned top-level fields such as `packages` during provider/common-config rewrites. These fields are not the same thing as PiHub-managed provider/common config.
+
+### Modal Implementation Notes
+
+弹窗、分区、横向字段和卡片视觉规范统一写在根目录 `DESIGN.md`。这里仅保留会影响实现正确性的工程规则。
+
+- 普通 Ant Design `<Modal>` 居中由 `ConfigProvider` 和全局 `web/App.css` 处理；静态 `Modal.confirm/info/error/success/warning` 通过 `ConfigProvider.config({ holderRender })` 取得同一上下文。
+- 高弹窗必须依赖 `web/App.css` 的 viewport-safe modal 规则：`.ant-modal-wrap` 使用 `--ai-modal-viewport-block-gap` 和 `--ai-modal-viewport-inline-gap`，modal body 内部滚动。不要重新添加 per-modal `top` 偏移或一次性 max-height hack。
+- 真正全屏弹窗可通过 `rootClassName` 或 `wrapClassName` 将 `--ai-modal-viewport-block-gap` / `--ai-modal-viewport-inline-gap` 设为 `0px`，并明确接管内部滚动。
+- 弹窗内使用 `<Collapse>` 做 section 时，必须传 `bordered={false}` 或 `ghost`，否则 Ant Design CSS-in-JS 的默认白色 header/content 和边框会覆盖模块样式。
+- 自定义 collapse section 时，`.ant-collapse-content` 和 `.ant-collapse-content-box` 都需要显式设置 `background: transparent !important`，避免默认 `colorBgContainer` 破坏 section 背景。
+- 折叠内容不能只通过 `opacity`、`max-height` 或 `overflow` 视觉隐藏后继续保留可聚焦控件；收起态必须避免键盘焦点进入隐藏内容。
+- 复用现有 modal 表单模式时，保留 `<div className={styles.content}>` 和 `className={styles.form}` 这类已有结构，避免 alert、form item、输入框边距在同类弹窗中漂移。
+
+### Styling
+
+- Use CSS Modules with Less (`.module.less`)
+- Class naming: camelCase in Less files
+- Use CSS variables and Ant Design tokens defined by `DESIGN.md`; do not hardcode colors, shadows, radius, spacing, or one-off visual systems in business components.
+- Keep visual rules in `DESIGN.md` unless the rule is specifically about implementation mechanics, data semantics, or module ownership.
+
+### Theme System (Dark Mode)
+
+PiHub supports light, dark, and system theme. Visual token usage is defined in `DESIGN.md`; this section only documents the implementation architecture and non-negotiable engineering constraints.
+
+#### Theme Architecture
+
+1. **Theme Store** (`web/stores/themeStore.ts`):
+   - Manages theme mode: `'light'`, `'dark'`, or `'system'`
+   - Automatically syncs with system theme when mode is `'system'`
+   - Persists preference to database
+
+2. **Theme Provider** (`web/app/providers.tsx`):
+   - Applies Ant Design theme algorithm (`darkAlgorithm` or `defaultAlgorithm`)
+   - Sets `data-theme` attribute on `document.documentElement`
+   - Updates window background color for native titlebar
+
+3. **CSS Variables** (`web/App.css`):
+   - Defines theme-aware CSS variables
+   - All custom variables automatically switch when `data-theme` attribute changes
+
+#### Theme Rules
+
+- UI colors, borders, shadows, radius and spacing must use `DESIGN.md` tokens, `web/App.css` CSS variables, or Ant Design tokens. Never hardcode light-only or dark-only values in business components.
+- Theme-specific overrides must use `[data-theme="dark"]` / `[data-theme="light"]` selectors. Do not use `@media (prefers-color-scheme: dark)` for app theme styling, because the app supports an explicit user-selected theme mode.
+- Inline styles are acceptable only when the component API requires them; values must still come from CSS variables or Ant Design tokens.
+- Images and icons that assume a light background must be checked in dark mode and adjusted through existing icon assets, tokenized colors, or scoped filters.
+
+#### Accessing Theme in TypeScript
+
+```typescript
+import { useThemeStore } from '@/stores/themeStore';
+
+const MyComponent = () => {
+  const { mode, resolvedTheme } = useThemeStore();
+  // mode: 'light' | 'dark' | 'system'
+  // resolvedTheme: 'light' | 'dark' (computed value)
+
+  // Prefer CSS variables for colors; use resolvedTheme only when rendering logic differs.
+};
+```
+
+#### Testing Theme Support
+
+When implementing new components or features, test light, dark, and system theme. Check hover, active, disabled, selected, loading, and empty states, and search for accidental hardcoded color literals in changed UI files.
+
+### Internationalization
+
+- All user-facing text must use i18next
+- Translation keys in `web/i18n/locales/`
+- Use nested keys: `modules.daily`, `settings.language`
+- Before adding, updating, deleting, checking, or looking up translation keys, use `scripts/i18n-keys.mjs` instead of manually reading or editing the full locale JSON files.
+  - `pnpm i18n:check` verifies statically used keys exist in every locale and locale key sets stay aligned.
+  - `pnpm i18n:set-key <key> --zh-CN "中文" --en-US "English" --write` adds a key to every locale; use `--allow-overwrite` only when intentionally replacing existing copy.
+  - `pnpm i18n:find-text <text>` finds keys by translated copy.
+  - `pnpm i18n:find-key <key-or-prefix>` shows locale values and static usage locations.
+  - `pnpm i18n:prune --prefix <key-prefix> --write` removes high-confidence unused keys only inside the explicit prefix; do not run broad prune without a prefix.
+- Do not patch `web/i18n/locales/*.json` directly for ordinary add/update/delete work. If `scripts/i18n-keys.mjs` cannot perform the needed i18n edit, extend the script first in the same task, then use the script command and run `pnpm i18n:check`.
+- `pnpm test` includes the i18n key coverage test. If it fails, fix missing or mismatched locale keys rather than suppressing the check.
+
+```typescript
+const { t } = useTranslation();
+<span>{t('modules.daily')}</span>
+```
+
+## Feature Module Structure
+
+Each feature in `web/features/` follows this pattern:
+
+```
+features/
+└── feature-name/
+    ├── components/     # Feature-specific components
+    ├── hooks/          # Feature-specific hooks
+    ├── services/       # Tauri command wrappers
+    ├── stores/         # Feature state
+    ├── types/          # Feature types
+    ├── pages/          # Page components
+    └── index.ts        # Public exports
+```
+
+## Key Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `tsconfig.json` | TypeScript config with path aliases |
+| `vite.config.ts` | Vite build config, dev server on port 5173 |
+| `tauri/tauri.conf.json` | Tauri app config |
+| `tauri/Cargo.toml` | Rust dependencies |
+
+## Important Notes
+
+1. **Strict TypeScript**: `noUnusedLocals` and `noUnusedParameters` are enabled
+2. **Database**: Uses embedded SQLite JSONB as the primary local database; SurrealDB is legacy import-only state for users upgrading from old versions
+3. **i18n**: Supports `zh-CN` and `en-US`
+4. **Theme**: Full dark mode / light mode / system theme support implemented; visual token rules live in `DESIGN.md`, and implementation mechanics are summarized in the Theme System section above
+5. **Dev Server**: Runs on `http://127.0.0.1:5173`
+
+## SQLite JSONB Database Notes
+
+- 主数据库是 SQLite JSONB。新增或改造的持久化路径必须直接读写 `SqliteDbState`，禁止新增 SurrealDB-only 或 SurrealDB 双写路径。
+- SQLite 表结构统一遵循 `id + data(JSONB) + created_at + updated_at`，业务字段放在 JSONB `data` 中；新增/删除普通业务字段不需要 schema migration，adapter 负责默认值与兼容读取。
+- 启动阶段必须先检测旧库迁移状态，再打开 SQLite。只有旧 `{app_data_dir}/database` 存在且需要导入时，才临时打开 SurrealDB 执行一次性全量导入。
+- 打开 SQLite 文件后必须先用 `PRAGMA user_version` 做只读兼容检查；如果版本高于当前 `TARGET_SCHEMA_VERSION`，立即显示阻塞错误并退出，不要继续设置 WAL、跑 health probe、seed 数据或迁移。
+- 对真实文件数据库执行 schema 升级前，必须先创建迁移前 SQLite 快照；快照失败时应阻断升级，避免在没有回退点的情况下修改用户数据库。
+- 旧 SurrealDB 目录在导入、计数校验和完成标记成功前绝不能删除。完成标记必须在归档旧目录前写入；如果归档中途崩溃，下次启动应进入 `NeedsLegacyArchive` 而不是清理已导入的 SQLite。导入完成后压缩为 `{app_data_dir}/database.migrated.zip` 永久保留，并删除旧目录。
+- 迁移失败不能写完成标记；不完整 SQLite 文件需要清理，下次启动重试。连续 3 次失败后应向用户展示 `migration.log` 路径。
+- 备份恢复以 SQLite 单文件和 `db_manifest.json` 为准。旧 SurrealDB 备份只能作为恢复输入，恢复时导入 SQLite；新备份不要再包含旧 SurrealDB 快照作为事实源。
+- 备份导出/导入命令在 `settings/commands.rs`（`export_database_backup` / `import_database_backup`），核心实现在 `db/backup_commands.rs`：导出用 `backup_to_path`（WAL checkpoint + 在线备份，产出无 WAL/SHM 的一致性单文件）并写 `db_manifest.json`；导入先只读校验 `user_version` 不高于 `TARGET_SCHEMA_VERSION` + JSONB/quick_check，然后暂存到 `{app_data_dir}/.restore-incoming/` 并写 `.restore-pending.flag`，重启时在 `SqliteDbState::open` 之前执行 `swap_restore_pending_on_startup`（先备份旧库到 `sqlite-restore-backups/`，失败则中止恢复保留旧库与 flag，再替换并清 flag）。不要在业务层直接覆盖正在运行的数据库文件。
+- 跨表状态切换（如 applied flag）必须在 SQLite 事务或 helper 组合内完成；单表 applied 切换优先用 `db_update_applied_status`，不能在业务层逐条 `db_patch_where_bool` 后再单独 patch 目标记录。
+- 少数独立物理表（如 Gateway `model_pricing`）使用官方默认数据补齐时，必须优先保护用户已有行；默认 seed / 远端同步只能用 `INSERT OR IGNORE` 这类增量插入语义，不能覆盖用户自定义值。
+
+## Skills / Pi 提示
+
+- Skills 的**唯一源目录**是中央仓库 `central_repo_path`。
+- `skills_sync_to_tool` 的职责是：把中央仓库内容同步到工具运行时目录。
+- 工具 skills 目录不能通过真实路径解析成中央仓库自身或其子目录。同步前必须按 symlink 解析后的路径拒绝 `source == target`、target 在 source 内、source 在 target 内。
+
+## CLI 调用规则
+
+对 Pi CLI，后端需要调用 CLI 时，必须先通过 `runtime_location` 解析当前运行时：
+- 如果运行时是本机路径，直接调用本机 CLI。
+- 如果运行时是 `WslDirect`，必须改成 `wsl -d <distro> --exec ...` 执行。
+- 纯文件读写可以继续直接访问 `\\\\wsl.localhost\\...` UNC 路径；但"文件 I/O 可用"不代表"CLI 也可以直接吃 UNC 路径"。
+- 不要在 GUI 进程里直接依赖 `PATH` 做 `Command::new("pi")`。macOS 从 Dock/Finder/Spotlight 启动时常拿不到 shell PATH。
+
+## Data Storage Architecture
+
+**IMPORTANT**: All data storage and retrieval must go through the service layer API and interact directly with the backend SQLite JSONB database. SurrealDB is only a legacy import source during startup migration.
+
+### DO NOT use localStorage
+
+- **Never** use `localStorage` or `zustand/persist` for data that needs to be persisted
+- **Never** sync data from localStorage to database - this pattern is not allowed
+- All persistent data must be stored directly in the backend database via Tauri commands
+
+### Correct Data Flow
+
+```
+┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐     ┌──────────────┐
+│  Component  │ ──► │  Service Layer   │ ──► │  Tauri Command  │ ──► │ SQLite JSONB │
+│  (React)    │ ◄── │  (web/services/) │ ◄── │  (Rust)         │ ◄── │  (Database)  │
+└─────────────┘     └──────────────────┘     └─────────────────┘     └──────────────┘
+```
+
+### Service Layer Structure
+
+All API services are located in `web/services/`:
+
+```typescript
+// web/services/settingsApi.ts
+import { invoke } from '@tauri-apps/api/core';
+
+export const getSettings = async (): Promise<AppSettings> => {
+  return await invoke<AppSettings>('get_settings');
+};
+
+export const saveSettings = async (settings: AppSettings): Promise<void> => {
+  await invoke('save_settings', { settings });
+};
+```
+
+### Backend Command Pattern
+
+All Tauri commands interacting with persisted JSON records must follow the **Adapter Pattern**. Production persistence paths should use `SqliteDbState` plus `db_helpers`/JSONB helpers; raw SurrealQL belongs only in the legacy import/migration modules.
+
+#### 1. Database Naming Convention
+- **Database Fields**: Must use `snake_case`.
+- **Rust Structs**: Use `snake_case`.
+- **Do NOT** use `#[serde(rename_all = "camelCase")]` for database records.
+
+#### 2. Adapter Layer (Required)
+Always implement an adapter layer to decouple Rust structs from database records. This handles missing fields and type mismatches robustly.
+
+```rust
+// adapter.rs
+use serde_json::Value;
+use super::types::AppSettings;
+
+pub fn from_db_value(value: Value) -> AppSettings {
+    AppSettings {
+        // Robust extraction with defaults
+        language: value.get("language")
+            .and_then(|v| v.as_str())
+            .unwrap_or("en-US")
+            .to_string(),
+        // ... other fields with default values
+    }
+}
+
+pub fn to_db_value(settings: &AppSettings) -> Value {
+    serde_json::to_value(settings).unwrap_or(json!({}))
+}
+```
+
+#### 3. Persistence Pattern (SQLite JSONB)
+主数据库读写必须直接走 SQLite：
+
+- 普通记录优先使用 `SqliteDbState` + `db_helpers::{db_get, db_list, db_put, db_create, db_delete}`。
+- 单例记录使用固定 ID，例如 `settings/app`、`*_common_config/common`、`*_global_config/global`。
+- 写入 `data` 前仍然走 adapter，把业务结构转为 `serde_json::Value`；读取后由 adapter 补默认值。
+- SQLite helper 返回的 `Value` 已注入干净字符串 `id`，不要再按 SurrealDB `Thing` 或 `table:id` 处理。
+- 新建普通记录优先用 `db_create(conn, DbTable::X, &payload)`；需要手动 ID 时使用 `db_new_id()`，单例记录使用固定 ID。
+- 局部更新用 `db_patch_fields`；批量谓词更新若影响互斥状态必须包在 `db_transaction` 或使用专用 helper。需要原子更新多张表时用 `db_transaction`。
+- 表名必须来自 `DbTable` 或经过 identifier 校验，不要拼接未经校验的外部输入。
+- 旧 SurrealDB 查询规则只允许存在于 `tauri/src/db/surreal_import.rs` 和 `tauri/src/db_migration/`，用于读取老用户旧库并导入 SQLite。业务模块、Tauri command、store、tray、backup、WSL/SSH 同步路径都不能新增 SurrealQL。
+
+```rust
+#[tauri::command]
+pub async fn get_settings(
+    state: tauri::State<'_, SqliteDbState>,
+) -> Result<AppSettings, String> {
+    settings::store::load_settings_from_sqlite_state(&state)
+}
+
+#[tauri::command]
+pub async fn save_settings(
+    state: tauri::State<'_, SqliteDbState>,
+    settings: AppSettings,
+) -> Result<(), String> {
+    settings::store::save_settings_to_sqlite_state(&state, &settings)
+}
+```
+
+### Benefits of Direct Database Access
+
+1. **Performance**: SQLite JSONB is embedded, single-file, and fast for this app's local data scale
+2. **Consistency**: Single source of truth for all data
+3. **Backup**: Database files can be backed up/restored as a whole
+4. **No Sync Issues**: Avoids complex synchronization between localStorage and database
+
+---
+
+## System Tray Menu Integration
+
+### Overview
+
+The system tray menu provides quick access to configuration selections without opening the main window. When configurations are changed (either from the main window or the tray menu), the tray menu must stay in sync.
+
+### Event-Driven Architecture
+
+All configuration changes use the `config-changed` Tauri event to synchronize state:
+
+| Source | Event Payload | Tray Refresh | Page Reload |
+|--------|---------------|--------------|-------------|
+| Main Window | `"window"` | ✅ | ❌ |
+| Tray Menu | `"tray"` | ✅ | ✅ |
+
+### Backend Implementation
+
+#### 1. Internal Function Pattern
+
+All modules should implement an internal function `apply_config_internal` that handles configuration saving and event emission:
+
+```rust
+// commands.rs
+pub async fn apply_config_internal<R: tauri::Runtime>(
+    state: tauri::State<'_, SqliteDbState>,
+    app: &tauri::AppHandle<R>,
+    config: ModuleConfig,
+    from_tray: bool,
+) -> Result<(), String> {
+    // 1. Save configuration to file/database
+    save_config_to_file(state, &config).await?;
+
+    // 2. Update database state if needed
+    update_db_state(state, &config).await?;
+
+    // 3. Emit event based on source
+    let payload = if from_tray { "tray" } else { "window" };
+    let _ = app.emit("config-changed", payload);
+
+    Ok(())
+}
+```
+
+#### 2. Tauri Command (Main Window)
+
+The Tauri command called by the frontend passes `from_tray: false`:
+
+```rust
+#[tauri::command]
+pub async fn save_module_config(
+    state: tauri::State<'_, SqliteDbState>,
+    app: tauri::AppHandle,
+    config: ModuleConfig,
+) -> Result<(), String> {
+    apply_config_internal(state, &app, config, false).await
+}
+```
+
+#### 3. Tray Support Module
+
+The tray support module calls with `from_tray: true`:
+
+```rust
+// tray_support.rs
+pub async fn apply_module_selection<R: Runtime>(
+    app: &AppHandle<R>,
+    selection_id: &str,
+) -> Result<(), String> {
+    let state = app.state::<SqliteDbState>();
+
+    // Build config from selection
+    let config = build_config_from_selection(&state, selection_id)?;
+
+    // Apply with from_tray: true
+    super::commands::apply_config_internal(&state, app, config, true).await?;
+
+    Ok(())
+}
+```
+
+#### 4. Global Event Listener (lib.rs)
+
+The main entry point registers a global listener that refreshes the tray menu on any `config-changed` event:
+
+```rust
+// lib.rs
+let app_handle_clone = app_handle.clone();
+tauri::async_runtime::spawn(async move {
+    let value = app_handle_clone.clone();
+    let value_for_closure = value.clone();
+    let listener = value.listen("config-changed", move |_event| {
+        let app = value_for_closure.app_handle().clone();
+        let _ = tauri::async_runtime::spawn(async move {
+            let _ = tray::refresh_tray_menus(&app);
+        });
+    });
+    let _ = listener;
+});
+```
+
+### Frontend Implementation
+
+#### 1. Event Listener (providers.tsx)
+
+The app's main provider listens for `config-changed` events and triggers a page reload only for tray menu changes:
+
+```typescript
+// web/app/providers.tsx
+use { listen } from '@tauri-apps/api/event';
+
+React.useEffect(() => {
+  const setupListener = async () => {
+    unlisten = await listen<string>('config-changed', (event) => {
+      const configType = event.payload;
+      // Only reload page when change comes from tray menu
+      if (configType === 'tray') {
+        window.location.reload();
+      }
+      // Changes from main window only refresh the tray menu (handled by backend)
+    });
+  };
+  setupListener();
+  return () => { if (unlisten) unlisten(); };
+}, []);
+```
+
+### Tray Support Module Structure
+
+Each coding module with tray integration should have:
+
+```
+tauri/src/coding/{module_name}/
+├── commands.rs          # Tauri commands + apply_config_internal
+├── tray_support.rs      # Tray-specific functions
+├── adapter.rs           # DB value adapters
+└── types.rs             # Type definitions
+```
+
+### Tray Support Module Functions
+
+The `tray_support.rs` must export:
+
+```rust
+// Data structures
+pub struct TrayData {
+    pub title: String,           // Section title
+    pub items: Vec<TrayItem>,    // Selection items
+}
+
+pub struct TrayItem {
+    pub id: String,              // Unique identifier
+    pub display_name: String,    // Display text
+    pub is_selected: bool,       // Current selection state
+}
+
+// Required functions
+pub async fn get_{module}_tray_data<R: Runtime>(app: &AppHandle<R>)
+    -> Result<TrayData, String>;
+
+pub async fn apply_{module}_selection<R: Runtime>(app: &AppHandle<R>, id: &str)
+    -> Result<(), String>;
+```
+
+### Menu Refresh Function
+
+The `tray.rs` module exports:
+
+```rust
+pub async fn refresh_tray_menus<R: Runtime>(app: &AppHandle<R>)
+    -> Result<(), String> {
+    // 1. Fetch data from all modules
+    let module_data = module_tray::get_module_tray_data(app).await?;
+
+    // 2. Build menu items with checkmarks
+    let items = build_menu_items(app, &module_data)?;
+
+    // 3. Update tray menu
+    let tray = app.state::<tauri::tray::TrayIcon>();
+    tray.set_menu(Some(menu))?;
+
+    Ok(())
+}
+```
+
+### File Structure
+
+```
+tauri/src/
+├── tray.rs                    # Main tray menu builder
+├── lib.rs                     # Global event listener setup
+└── coding/
+    └── {module}/
+        ├── commands.rs        # apply_config_internal + Tauri commands
+        ├── tray_support.rs    # Tray data fetching + apply functions
+        ├── adapter.rs
+        └── types.rs
+
+web/
+├── app/
+│   └── providers.tsx          # config-changed event listener
+└── services/
+    └── {module}Api.ts         # Backend API wrappers
+```
+
+### Implementation Checklist for New Tray Integration
+
+1. **Backend** (`tauri/src/coding/{module}/`):
+   - [ ] Add `apply_config_internal` function with `from_tray` parameter
+   - [ ] Implement Tauri command for main window (calls with `false`)
+   - [ ] Implement tray support functions:
+     - `get_{module}_tray_data()` - returns current selections
+     - `apply_{module}_selection()` - handles tray menu selection (calls with `true`)
+   - [ ] Emit `config-changed` event with `"window"` or `"tray"` payload
+
+2. **Frontend** (`web/app/providers.tsx`):
+   - [ ] Ensure `config-changed` event listener reloads page only for `"tray"` payload
+
+3. **Main Entry** (`tauri/src/lib.rs`):
+   - [ ] Global listener already exists - no changes needed
+
+---
+
+## HTTP Client Guidelines
+
+All HTTP requests in the Rust backend MUST use the unified `http_client` module to ensure proxy settings are respected.
+
+### Usage
+
+```rust
+use crate::http_client;
+use crate::db::SqliteDbState;
+
+// Standard request (30s timeout, auto proxy)
+let client = http_client::client(&state).await?;
+
+// Custom timeout
+let client = http_client::client_with_timeout(&state, 60).await?;
+
+// Bypass proxy (special cases only)
+let client = http_client::client_no_proxy(30)?;
+
+// Get proxy URL directly (for non-HTTP use cases like git)
+let proxy_url = http_client::get_proxy_from_settings(&state).await?;
+// Returns empty string if not configured
+```
+
+### Rules
+
+1. **NEVER** use `reqwest::Client::new()` or `reqwest::Client::builder()` directly
+2. **ALWAYS** use `http_client::client()` for requests that should respect proxy settings
+3. Use `http_client::client_no_proxy()` only when you explicitly need to bypass proxy
+4. **For non-HTTP proxy needs** (e.g., git operations, external CLI tools): Use `http_client::get_proxy_from_settings()` to retrieve the proxy URL and apply it appropriately (e.g., set environment variables like `HTTP_PROXY`/`HTTPS_PROXY`)
+
+### Supported Proxy Formats
+
+- HTTP: `http://proxy.example.com:8080`
+- HTTP with auth: `http://user:pass@proxy.example.com:8080`
+- SOCKS5: `socks5://proxy.example.com:1080`
+- SOCKS5 with auth: `socks5://user:pass@proxy.example.com:1080`
+
+### Files Using http_client
+
+- `tauri/src/update.rs` - Update checking
+- `tauri/src/coding/pi/commands.rs` - Pi provider model fetching
+- `tauri/src/coding/pi/models_fetch.rs` - Provider model list fetching
+- `tauri/src/coding/pi/extensions.rs` - Pi extension operations
+- `tauri/src/coding/skills/installer.rs` - Git operations proxy
+- `tauri/src/coding/skills/commands.rs` - Git operations proxy

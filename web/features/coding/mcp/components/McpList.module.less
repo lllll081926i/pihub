@@ -1,0 +1,23 @@
+.list {
+  display: grid;
+  grid-template-columns: var(--management-grid-columns, repeat(2, minmax(0, 1fr)));
+  gap: 10px;
+}
+
+.listAuto {
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.listFixed {
+  grid-template-columns: var(--management-grid-columns);
+}
+
+.loading {
+  min-height: 160px;
+}
+
+.empty {
+  min-height: 160px;
+}
