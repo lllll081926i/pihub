@@ -1173,6 +1173,69 @@ pub fn run() {
                 std::future::pending::<()>().await;
             });
 
+            // Auto update check: honor the `auto_check_update` setting, wait for the
+            // frontend to attach its listeners (`frontend-ready` handshake, same pattern
+            // as the Linux webview watchdog) so the `update-available` event is never
+            // emitted before the UI can receive it, then run the check in the background.
+            {
+                let app_clone = app_handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    use tokio::sync::watch;
+
+                    let (ready_tx, mut ready_rx) = watch::channel(false);
+                    let _handler = app_clone.listen("frontend-ready", move |_event| {
+                        let _ = ready_tx.send(true);
+                    });
+
+                    let timeout = Duration::from_secs(20);
+                    let start = std::time::Instant::now();
+                    loop {
+                        if *ready_rx.borrow() || start.elapsed() >= timeout {
+                            break;
+                        }
+                        tokio::select! {
+                            _ = ready_rx.changed() => {}
+                            _ = tokio::time::sleep(Duration::from_millis(200)) => {}
+                        }
+                    }
+
+                    let db_state = app_clone.state::<crate::SqliteDbState>();
+                    let auto_check =
+                        settings::store::load_settings_from_sqlite_state(&db_state)
+                            .map(|settings| settings.auto_check_update)
+                            .unwrap_or(true);
+
+                    if !auto_check {
+                        info!("自动更新检查已关闭，跳过启动检查");
+                        return;
+                    }
+
+                    match update::check_for_updates_internal(&app_clone, db_state.inner()).await {
+                        Ok(result) if result.has_update => {
+                            info!(
+                                "发现新版本 {}（当前 {}），通知前端",
+                                result.latest_version, result.current_version
+                            );
+                            // Match the frontend `UpdateInfo` shape (camelCase).
+                            let payload = serde_json::json!({
+                                "hasUpdate": result.has_update,
+                                "currentVersion": result.current_version,
+                                "latestVersion": result.latest_version,
+                                "releaseUrl": result.release_url,
+                                "releaseNotes": result.release_notes,
+                                "signature": result.signature,
+                                "url": result.url,
+                            });
+                            let _ = app_clone.emit("update-available", payload);
+                        }
+                        Ok(_) => {}
+                        Err(e) => {
+                            warn!("启动时自动更新检查失败: {}", e);
+                        }
+                    }
+                });
+            }
+
             // Enable auto-launch if setting is true, and handle start_minimized
             let app_handle_clone = app_handle.clone();
             tauri::async_runtime::spawn(async move {
@@ -1496,6 +1559,8 @@ pub fn run() {
             coding::skills::skills_set_show_in_tray,
             coding::skills::skills_get_default_view_mode,
             coding::skills::skills_set_default_view_mode,
+            coding::skills::skills_get_card_columns,
+            coding::skills::skills_set_card_columns,
             // Skills Hub - Custom Tools
             coding::skills::skills_get_custom_tools,
             coding::skills::skills_add_custom_tool,
@@ -1539,6 +1604,8 @@ pub fn run() {
             coding::mcp::mcp_scan_servers,
             coding::mcp::mcp_get_show_in_tray,
             coding::mcp::mcp_set_show_in_tray,
+            coding::mcp::mcp_get_card_columns,
+            coding::mcp::mcp_set_card_columns,
             coding::mcp::mcp_add_custom_tool,
             coding::mcp::mcp_remove_custom_tool,
             // MCP Favorites

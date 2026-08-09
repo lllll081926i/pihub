@@ -152,6 +152,9 @@ pub struct McpPreferences {
     pub show_in_tray: bool,
     #[serde(default)]
     pub favorites_initialized: bool,
+    /// Grid column preference for the management page: "auto" or a digit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub card_columns: Option<String>,
     pub updated_at: i64,
 }
 
@@ -161,6 +164,7 @@ impl Default for McpPreferences {
             id: "default".to_string(),
             show_in_tray: false,
             favorites_initialized: false,
+            card_columns: None,
             updated_at: 0,
         }
     }

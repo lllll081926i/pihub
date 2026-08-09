@@ -12,19 +12,47 @@
   border-radius: 8px;
   border: 1px solid var(--color-border-card);
   box-shadow: var(--shadow-card-sm);
+  animation: cardEnter 0.28s var(--ease-out-quart) backwards;
   transition:
     border-color 0.16s ease,
     background 0.16s ease,
-    box-shadow 0.16s ease;
+    box-shadow 0.16s ease,
+    transform 0.1s ease;
 
   &:hover {
     background: var(--color-bg-elevated);
     box-shadow: var(--shadow-card-sm-hover);
   }
 
+  &:active {
+    transform: translateY(0.5px);
+  }
+
   &.selected {
     border-color: var(--color-border-secondary);
     background: var(--color-bg-selected);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+    animation: none;
+
+    &:active {
+      transform: none;
+    }
+  }
+}
+
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

@@ -32,6 +32,7 @@ import {
   ManagementMenu,
   type ManagementMenuItem,
 } from '@/features/coding/shared/management';
+import ContextMenu, { useContextMenu } from '@/components/common/ContextMenu';
 import type { ManagedSkill, ToolOption } from '../types';
 import { getSkillFolderOpenCandidates, getSkillManifestPath } from '../utils/skillPath';
 import styles from './SkillCard.module.less';
@@ -66,6 +67,7 @@ interface SkillCardProps {
   selectable?: boolean;
   selected?: boolean;
   toolsReadOnly?: boolean;
+  enterDelay?: number;
   onSelectChange?: (skillId: string, checked: boolean) => void;
   getGithubInfo: (url: string | null | undefined) => { label: string; href: string } | null;
   formatRelative: (ms: number | null | undefined) => string;
@@ -91,6 +93,7 @@ const SkillCardContent = React.memo(function SkillCardContent({
   selectable,
   selected,
   toolsReadOnly,
+  enterDelay,
   onSelectChange,
   getGithubInfo,
   formatRelative,
@@ -104,6 +107,16 @@ const SkillCardContent = React.memo(function SkillCardContent({
   containerStyle,
 }: SkillCardContentProps) {
   const { t } = useTranslation();
+  const { position, openMenu, closeMenu } = useContextMenu();
+
+  const copyText = React.useCallback(async (text: string, successKey: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      message.success(t(successKey));
+    } catch {
+      message.error(t('common.error'));
+    }
+  }, [t]);
 
   const typeKey = skill.source_type.toLowerCase();
   const sourceWarningMessage = skill.source_health === 'warning'
@@ -163,7 +176,7 @@ const SkillCardContent = React.memo(function SkillCardContent({
     return false;
   }, [openExistingFolder]);
 
-  const handleIconClick = async () => {
+  const handleIconClick = React.useCallback(async () => {
     if (typeKey.includes('git')) {
       const repoUrl = github?.href ?? skill.source_ref?.trim();
       if (!repoUrl) return;
@@ -191,9 +204,9 @@ const SkillCardContent = React.memo(function SkillCardContent({
         );
       }
     }
-  };
+  }, [github, message, openExistingFolder, skill, t, typeKey]);
 
-  const handleOpenCentralPath = async () => {
+  const handleOpenCentralPath = React.useCallback(async () => {
     const manifestPath = getSkillManifestPath(skill.central_path);
 
     if (manifestPath) {
@@ -212,7 +225,47 @@ const SkillCardContent = React.memo(function SkillCardContent({
     if (!opened) {
       message.error(t('skills.openFolderFailed'));
     }
-  };
+  }, [message, openFirstPath, skill.central_path, t]);
+
+  const contextItems = React.useMemo<import('@/components/common/ContextMenu').ContextMenuItem[]>(() => {
+    const pathToCopy = (skill.central_path || skill.source_ref || '').trim();
+    const hasSource = typeKey.includes('local') && !!skill.source_ref?.trim();
+    return [
+      {
+        key: 'open-source',
+        label: t('skills.context.openSource'),
+        icon: <Folder size={13} />,
+        disabled: !hasSource,
+        onClick: () => void handleIconClick(),
+      },
+      {
+        key: 'open-managed',
+        label: t('skills.context.openManaged'),
+        icon: <Eye size={13} />,
+        onClick: () => void handleOpenCentralPath(),
+      },
+      {
+        key: 'copy-path',
+        label: t('skills.context.copyPath'),
+        icon: <Copy size={13} />,
+        disabled: !pathToCopy,
+        onClick: () => void copyText(pathToCopy, 'common.copy'),
+      },
+      {
+        key: 'edit',
+        label: t('skills.context.editMetadata'),
+        icon: <Tags size={13} />,
+        onClick: () => onEditMetadata(skill),
+      },
+      {
+        key: 'delete',
+        label: t('common.delete'),
+        icon: <Trash2 size={13} />,
+        danger: true,
+        onClick: () => onDelete(skill.id),
+      },
+    ];
+  }, [copyText, handleIconClick, handleOpenCentralPath, onDelete, onEditMetadata, skill, t, typeKey]);
 
   const handleToggleManagement = React.useCallback(() => {
     if (loading || isUpdating) return;
@@ -302,6 +355,8 @@ const SkillCardContent = React.memo(function SkillCardContent({
       selected={selected}
       selectable={selectable}
       className={cardClassName}
+      enterDelay={enterDelay}
+      onContextMenu={openMenu}
     >
       {selectable && (
         <ManagementCardCheckboxArea>
@@ -413,6 +468,9 @@ const SkillCardContent = React.memo(function SkillCardContent({
           controlSize="compact"
         />
       </ManagementCardActions>
+      {position ? (
+        <ContextMenu position={position} items={contextItems} onClose={closeMenu} />
+      ) : null}
     </ManagementCard>
   );
 });

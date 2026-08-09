@@ -36,6 +36,7 @@ import {
   ManagementSearchInput,
   ManagementSegmented,
   MANAGEMENT_GRID_COLUMN_OPTIONS,
+  parseManagementGridColumnSetting,
   type ManagementGridColumnSetting,
   type ManagementMenuItem,
 } from '@/features/coding/shared/management';
@@ -249,6 +250,34 @@ const SkillsPage: React.FC = () => {
   const previousViewModeRef = React.useRef<SkillViewMode>('flat');
   const previousAutoExpandRef = React.useRef(false);
   const hasUserSelectedViewModeRef = React.useRef(false);
+
+  // Restore the persisted card-column preference; keep a ref so the restore
+  // never clobbers a newer user selection while the read is in flight.
+  const gridColumnsRestoredRef = React.useRef(false);
+  React.useEffect(() => {
+    if (gridColumnsRestoredRef.current) {
+      return;
+    }
+    let cancelled = false;
+    void api.getSkillCardColumns().then((columns) => {
+      if (cancelled) {
+        return;
+      }
+      gridColumnsRestoredRef.current = true;
+      setGridColumnSetting(parseManagementGridColumnSetting(columns));
+    }).catch(() => {
+      gridColumnsRestoredRef.current = true;
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleCardColumnSettingChange = React.useCallback(
+    (next: ManagementGridColumnSetting) => {
+      setGridColumnSetting(next);
+      void api.setSkillCardColumns(next === 'auto' ? 'auto' : String(next)).catch(() => {});
+    },
+    [],
+  );
 
   // Initialize data on mount
   React.useEffect(() => {
@@ -1125,7 +1154,7 @@ const SkillsPage: React.FC = () => {
           open={isSettingsModalOpen}
           cardColumnSetting={gridColumnSetting}
           cardColumnOptions={MANAGEMENT_GRID_COLUMN_OPTIONS}
-          onCardColumnSettingChange={setGridColumnSetting}
+          onCardColumnSettingChange={handleCardColumnSettingChange}
           onDefaultViewModeApply={handleDefaultViewModeApply}
           onClose={() => setSettingsModalOpen(false)}
         />

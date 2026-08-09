@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
-import JsonEditor from '@/components/common/JsonEditor';
+import { LazyJsonEditor as JsonEditor } from '@/components/common/lazyMonaco';
 
 const { Text } = Typography;
 

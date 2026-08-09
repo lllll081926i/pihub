@@ -306,6 +306,7 @@ mod tests {
             id: "default".to_string(),
             show_in_tray: true,
             favorites_initialized: true,
+            card_columns: Some("3".to_string()),
             updated_at: 9,
         };
         save_mcp_preferences(&sqlite_state, &prefs)
@@ -315,6 +316,7 @@ mod tests {
             .await
             .expect("read preferences");
         assert!(prefs.show_in_tray);
+        assert_eq!(prefs.card_columns.as_deref(), Some("3"));
 
         let favorite = FavoriteMcp {
             id: String::new(),

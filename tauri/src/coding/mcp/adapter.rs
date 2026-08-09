@@ -178,6 +178,10 @@ pub fn from_db_mcp_preferences(value: Value) -> McpPreferences {
             .get("favorites_initialized")
             .and_then(|v| v.as_bool())
             .unwrap_or(false),
+        card_columns: value
+            .get("card_columns")
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
         updated_at: value
             .get("updated_at")
             .and_then(|v| v.as_i64())
@@ -187,11 +191,15 @@ pub fn from_db_mcp_preferences(value: Value) -> McpPreferences {
 
 /// Convert McpPreferences to database payload
 pub fn to_mcp_preferences_payload(prefs: &McpPreferences) -> Value {
-    serde_json::json!({
+    let mut payload = serde_json::json!({
         "show_in_tray": prefs.show_in_tray,
         "favorites_initialized": prefs.favorites_initialized,
         "updated_at": prefs.updated_at,
-    })
+    });
+    if let Some(columns) = &prefs.card_columns {
+        payload["card_columns"] = serde_json::json!(columns);
+    }
+    payload
 }
 
 /// Convert database record to FavoriteMcp struct

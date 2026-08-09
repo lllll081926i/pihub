@@ -129,6 +129,10 @@
 /* Fill window background to cover rounded corners */
 html, body {
   background-color: var(--color-bg-container);
+  /* Smooth theme switch: background/text colors animate across themes. */
+  transition:
+    background-color 0.3s var(--ease-out-quart),
+    color 0.3s var(--ease-out-quart);
 }
 
 * {
@@ -181,11 +185,37 @@ body {
     transform 260ms var(--ease-out-quart);
 }
 
+/* Theme-aware surfaces animate with the theme switch for a softer transition. */
+[data-theme] .ant-layout,
+[data-theme] .ant-card,
+[data-theme] .ant-modal-content,
+[data-theme] .ant-notification-notice,
+[data-theme] .ant-select-dropdown,
+[data-theme] .ant-tooltip-inner,
+[data-theme] .ant-message-notice-content {
+  transition:
+    background-color 0.3s var(--ease-out-quart),
+    border-color 0.3s var(--ease-out-quart),
+    color 0.3s var(--ease-out-quart);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .keep-alive-route,
   .keep-alive-route-active {
     opacity: 1;
     transform: none;
+    transition: none;
+  }
+
+  /* Theme-switch color transitions are motion too: disable them. */
+  html, body,
+  [data-theme] .ant-layout,
+  [data-theme] .ant-card,
+  [data-theme] .ant-modal-content,
+  [data-theme] .ant-notification-notice,
+  [data-theme] .ant-select-dropdown,
+  [data-theme] .ant-tooltip-inner,
+  [data-theme] .ant-message-notice-content {
     transition: none;
   }
 }

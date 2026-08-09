@@ -85,7 +85,7 @@ export const SkillsList: React.FC<SkillsListProps> = ({
         '--management-grid-columns': `repeat(${columns}, minmax(0, 1fr))`,
       } as React.CSSProperties)}
     >
-      {skills.map((skill) => (
+      {skills.map((skill, index) => (
         <SkillCard
           key={skill.id}
           skill={skill}
@@ -93,6 +93,7 @@ export const SkillsList: React.FC<SkillsListProps> = ({
           loading={loading}
           isUpdating={updatingSkillIds.includes(skill.id)}
           dragDisabled={dragDisabled}
+          enterDelay={Math.min(index * 24, 240)}
           getGithubInfo={getGithubInfo}
           formatRelative={formatRelative}
           onUpdate={onUpdate}

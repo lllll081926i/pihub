@@ -222,6 +222,7 @@ const SessionManagerContent: React.FC<SessionManagerContentProps> = ({
   const [messageSearchRunning, setMessageSearchRunning] = React.useState(false);
   const [metadataRefreshReason, setMetadataRefreshReason] = React.useState<MetadataRefreshReason>(null);
   const [importing, setImporting] = React.useState(false);
+  const [listError, setListError] = React.useState<string | null>(null);
   const [selectionMode, setSelectionMode] = React.useState(false);
   const [selectedSourcePaths, setSelectedSourcePaths] = React.useState<string[]>([]);
   const [bulkExporting, setBulkExporting] = React.useState(false);
@@ -287,6 +288,7 @@ const SessionManagerContent: React.FC<SessionManagerContentProps> = ({
     setInitialListLoaded(false);
     setMessageSearchRunning(false);
     setMetadataRefreshReason(null);
+    setListError(null);
     latestBackgroundRefreshKeyRef.current = null;
     latestInitialLoadKeyRef.current = null;
     completeAllSessionsSnapshotRef.current = null;
@@ -434,6 +436,7 @@ const SessionManagerContent: React.FC<SessionManagerContentProps> = ({
       }
 
       setItems(result.items);
+      setListError(null);
       setTotal(result.total);
       setPartial(Boolean(result.partial));
       setCacheState(result.cacheState ?? 'none');
@@ -493,6 +496,7 @@ const SessionManagerContent: React.FC<SessionManagerContentProps> = ({
         return;
       }
       const errorMessage = error instanceof Error ? error.message : String(error);
+      setListError(errorMessage || t('common.error'));
       message.error(errorMessage || t('common.error'));
     } finally {
       finishLoadingState();
@@ -1177,14 +1181,23 @@ const SessionManagerContent: React.FC<SessionManagerContentProps> = ({
 
         <Spin spinning={showListOverlay}>
           {items.length === 0 ? (
-            <div className={styles.emptyState}>
-              <Empty description={t(debouncedQuery || pathFilter ? 'sessionManager.emptyFiltered' : 'sessionManager.empty')} />
-              {(debouncedQuery || pathFilter) ? (
-                <Text className={styles.emptyHint}>
-                  {t('sessionManager.emptyFilteredHint')}
-                </Text>
-              ) : null}
-            </div>
+            listError ? (
+              <div className={styles.emptyState}>
+                <Empty description={t('common.loadFailed')} />
+                <Button size="small" onClick={() => void handleRefresh()}>
+                  {t('common.retry')}
+                </Button>
+              </div>
+            ) : (
+              <div className={styles.emptyState}>
+                <Empty description={t(debouncedQuery || pathFilter ? 'sessionManager.emptyFiltered' : 'sessionManager.empty')} />
+                {(debouncedQuery || pathFilter) ? (
+                  <Text className={styles.emptyHint}>
+                    {t('sessionManager.emptyFilteredHint')}
+                  </Text>
+                ) : null}
+              </div>
+            )
           ) : (
             <div className={styles.list}>
               {pageItems.map((session) => {

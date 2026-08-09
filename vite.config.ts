@@ -49,4 +49,42 @@ export default defineConfig(() => ({
       ],
     },
   },
+
+  build: {
+    modulePreload: {
+      polyfill: false,
+      // The Monaco chunk is intentionally lazy (only loads when an editor
+      // mounts); exclude it from HTML modulepreload so first paint does not
+      // fetch and parse it eagerly.
+      resolveDependencies: (_filename, deps) =>
+        deps.filter((dep) => !dep.includes('/monaco-')),
+    },
+    rollupOptions: {
+      output: {
+        // Split rarely-changing vendors into stable chunks so the webview can
+        // reuse them across app updates and parse less JS on first paint.
+        // Monaco (editors) and react-markdown stay in their own lazy chunks
+        // via the `lazyMonaco` wrappers and are NOT grouped here.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return undefined;
+          }
+          if (id.includes('/monaco-editor/') || id.includes('react-monaco-editor')) {
+            return 'monaco';
+          }
+          if (
+            id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/') || id.includes('/zustand/')
+          ) {
+            return 'react-vendor';
+          }
+          if (
+            id.includes('/antd/') || id.includes('/@ant-design/') || id.includes('/rc-') || id.includes('/@rc-component/')
+          ) {
+            return 'antd-vendor';
+          }
+          return undefined;
+        },
+      },
+    },
+  },
 }));

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Dropdown, Tooltip } from 'antd';
+import { Tooltip } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Sparkles, Puzzle, SlidersHorizontal, Settings, BarChart3, Monitor, Moon, Sun } from 'lucide-react';
 import { MCP } from '@lobehub/icons';
@@ -106,23 +106,27 @@ const AppSidebar: React.FC = () => {
   );
 
   const themeIcon = mode === 'light' ? <Sun className={styles.navIcon} size={20} /> : mode === 'dark' ? <Moon className={styles.navIcon} size={20} /> : <Monitor className={styles.navIcon} size={20} />;
-  const themeMenu = {
-    selectedKeys: [mode],
-    items: [
-      { key: 'system', label: t('settings.themeSystem'), icon: <Monitor size={16} /> },
-      { key: 'light', label: t('settings.themeLight'), icon: <Sun size={16} /> },
-      { key: 'dark', label: t('settings.themeDark'), icon: <Moon size={16} /> },
-    ],
-    onClick: ({ key }: { key: string }) => void setMode(key as ThemeMode),
+  const themeModeLabel = mode === 'light'
+    ? t('settings.themeLight')
+    : mode === 'dark'
+      ? t('settings.themeDark')
+      : t('settings.themeSystem');
+  const themeCycle: ThemeMode[] = ['system', 'light', 'dark'];
+  const cycleTheme = () => {
+    const next = themeCycle[(themeCycle.indexOf(mode) + 1) % themeCycle.length];
+    void setMode(next);
   };
 
   const themeButton = (
-    <Tooltip key="theme" title={t('settings.categoryAppearance')} placement="right">
-      <Dropdown menu={themeMenu} placement="bottom" trigger={['click']}>
-        <button type="button" className={styles.navItem} aria-label={t('settings.categoryAppearance')}>
-          {themeIcon}
-        </button>
-      </Dropdown>
+    <Tooltip key="theme" title={`${t('settings.categoryAppearance')} · ${themeModeLabel}`} placement="right">
+      <button
+        type="button"
+        className={styles.navItem}
+        onClick={cycleTheme}
+        aria-label={`${t('settings.categoryAppearance')} · ${themeModeLabel}`}
+      >
+        {themeIcon}
+      </button>
     </Tooltip>
   );
 
@@ -145,6 +149,18 @@ const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const mainRef = React.useRef<HTMLElement | null>(null);
+
+  // Global shortcut: Cmd/Ctrl + ',' opens Settings.
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === ',') {
+        event.preventDefault();
+        navigate('/settings');
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [navigate]);
 
   const currentRoute = React.useMemo(
     () => matchRouteEntry(PAGE_ROUTES, location.pathname),

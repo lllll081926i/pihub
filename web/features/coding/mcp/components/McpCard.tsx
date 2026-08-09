@@ -2,15 +2,18 @@ import React from 'react';
 import { message } from 'antd';
 import {
   Code2,
+  Copy,
   Globe2,
   MoreHorizontal,
   Pencil,
   Tags,
+  Terminal,
   Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import ContextMenu, { useContextMenu } from '@/components/common/ContextMenu';
 import {
   ManagementCard,
   ManagementCardActions,
@@ -44,6 +47,7 @@ interface McpCardProps {
   selectable?: boolean;
   toolsReadOnly?: boolean;
   resolvedPackageVersions?: Record<string, string>;
+  enterDelay?: number;
   onSelectChange?: (serverId: string, checked: boolean) => void;
   onEdit: (server: McpServer) => void;
   onEditMetadata: (server: McpServer) => void;
@@ -65,6 +69,7 @@ const McpCardContent = React.memo(function McpCardContent({
   selectable,
   toolsReadOnly,
   resolvedPackageVersions,
+  enterDelay,
   onSelectChange,
   onEdit,
   onEditMetadata,
@@ -75,6 +80,69 @@ const McpCardContent = React.memo(function McpCardContent({
   containerStyle,
 }: McpCardContentProps) {
   const { t } = useTranslation();
+  const { position, openMenu, closeMenu } = useContextMenu();
+
+  const copyText = React.useCallback(async (text: string, successKey: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      message.success(t(successKey));
+    } catch {
+      message.error(t('common.error'));
+    }
+  }, [t]);
+
+  const contextItems = React.useMemo<import('@/components/common/ContextMenu').ContextMenuItem[]>(() => {
+    const shellQuote = (part: string) => (
+      /\s/.test(part) && !/^["'].*["']$/.test(part)
+        ? `"${part.replace(/"/g, '\\"')}"`
+        : part
+    );
+    const command = server.server_type === 'stdio'
+      ? (() => {
+        const config = server.server_config as { command?: string; args?: string[] };
+        return [config.command, ...(config.args ?? [])]
+          .filter((part): part is string => Boolean(part))
+          .map(shellQuote)
+          .join(' ')
+          .trim();
+      })()
+      : (server.server_config as { url?: string })?.url ?? '';
+
+    return [
+      {
+        key: 'edit',
+        label: t('common.edit'),
+        icon: <Pencil size={13} />,
+        onClick: () => onEdit(server),
+      },
+      {
+        key: 'metadata',
+        label: t('mcp.context.editMetadata'),
+        icon: <Tags size={13} />,
+        onClick: () => onEditMetadata(server),
+      },
+      {
+        key: 'copy-name',
+        label: t('mcp.context.copyName'),
+        icon: <Copy size={13} />,
+        onClick: () => void copyText(server.name, 'common.copy'),
+      },
+      {
+        key: 'copy-command',
+        label: t('mcp.context.copyCommand'),
+        icon: <Terminal size={13} />,
+        disabled: !command,
+        onClick: () => void copyText(command, 'common.copy'),
+      },
+      {
+        key: 'delete',
+        label: t('common.delete'),
+        icon: <Trash2 size={13} />,
+        danger: true,
+        onClick: () => onDelete(server.id),
+      },
+    ];
+  }, [copyText, onDelete, onEdit, onEditMetadata, server, t]);
 
   const iconNode = React.useMemo(() => (
     server.server_type === 'stdio' ? (
@@ -161,6 +229,8 @@ const McpCardContent = React.memo(function McpCardContent({
       containerStyle={containerStyle}
       selected={selected}
       selectable={selectable}
+      enterDelay={enterDelay}
+      onContextMenu={openMenu}
     >
       {selectable && (
         <ManagementCardCheckboxArea>
@@ -240,6 +310,9 @@ const McpCardContent = React.memo(function McpCardContent({
           controlSize="compact"
         />
       </ManagementCardActions>
+      {position ? (
+        <ContextMenu position={position} items={contextItems} onClose={closeMenu} />
+      ) : null}
     </ManagementCard>
   );
 });

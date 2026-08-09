@@ -1,5 +1,6 @@
 pub mod all_api_hub;
 pub mod cli_resolver;
+pub mod file_io;
 pub mod magic_context;
 pub mod mcp;
 pub mod pi;

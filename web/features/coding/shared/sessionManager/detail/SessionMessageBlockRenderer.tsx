@@ -2,7 +2,7 @@ import React from 'react';
 import { Brain, ChevronDown, FileText, Image, Info, Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import MarkdownPreview from '@/components/common/MarkdownPreview';
+import { LazyMarkdownPreview as MarkdownPreview } from '@/components/common/lazyMarkdown';
 import type { SessionMessage, SessionMessageBlock } from '../types';
 import { hasSessionCommandTags } from './domain/commandTags';
 import { getBlockText, isToolBlock, valueToSearchText } from './domain/messageBlocks';

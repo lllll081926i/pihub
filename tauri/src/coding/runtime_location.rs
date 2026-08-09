@@ -267,7 +267,7 @@ pub async fn get_pi_runtime_location_async(
 async fn resolve_pi_runtime_location_uncached_async(
     db: &crate::db::SqliteDbState,
 ) -> Result<RuntimeLocationInfo, String> {
-    let path_info = normalize_stored_pi_root_dir(db)?;
+    let path_info = normalize_stored_pi_root_dir_async(db).await?;
 
     let (path, source) = if let Some(path) = path_info {
         (PathBuf::from(path), "custom".to_string())
@@ -278,30 +278,58 @@ async fn resolve_pi_runtime_location_uncached_async(
     Ok(build_runtime_location(path, source))
 }
 
-fn normalize_stored_pi_root_dir(db: &crate::db::SqliteDbState) -> Result<Option<String>, String> {
-    db.with_conn(|conn| {
+async fn normalize_stored_pi_root_dir_async(
+    db: &crate::db::SqliteDbState,
+) -> Result<Option<String>, String> {
+    let root_dir = db.with_conn(|conn| {
         let Some(record) = db_get(conn, DbTable::PiSettingsConfig, "common")? else {
             return Ok(None);
         };
-        let Some(root_dir) = crate::coding::pi::adapter::settings_from_db_value(record)
+        Ok(crate::coding::pi::adapter::settings_from_db_value(record)
             .root_dir
-            .filter(|path| !path.trim().is_empty())
-        else {
-            return Ok(None);
-        };
-        let normalized_root_dir = crate::coding::pi::normalize_pi_root_dir(&root_dir);
-        if normalized_root_dir != root_dir {
-            if let Err(error) = db_patch_fields(
+            .filter(|path| !path.trim().is_empty()))
+    })?;
+
+    let Some(root_dir) = root_dir else {
+        return Ok(None);
+    };
+
+    // The layout probe may touch unreachable WSL UNC / network roots; run it
+    // through the timeout-guarded async helpers instead of blocking the worker.
+    let normalized_root_dir = crate::coding::pi::normalize_pi_root_dir_async(&root_dir).await;
+    if normalized_root_dir != root_dir {
+        // Compare-and-set: only persist the normalization if the stored value is
+        // still the one we read (a concurrent `save_pi_settings_config` may have
+        // updated it while the async probe was in flight).
+        let normalized_clone = normalized_root_dir.clone();
+        let original_root = root_dir.clone();
+        let patch_result = db.with_conn(|conn| {
+            let current = db_get(conn, DbTable::PiSettingsConfig, "common")?
+                .map(crate::coding::pi::adapter::settings_from_db_value)
+                .and_then(|value| value.root_dir)
+                .unwrap_or_default();
+            if current != original_root {
+                return Ok(false);
+            }
+            db_patch_fields(
                 conn,
                 DbTable::PiSettingsConfig,
                 "common",
-                &[("root_dir", Value::String(normalized_root_dir.clone()))],
-            ) {
+                &[("root_dir", Value::String(normalized_clone))],
+            )?;
+            Ok(true)
+        });
+        match patch_result {
+            Ok(true) => {}
+            Ok(false) => {
+                log::warn!("Skipped persisting normalized Pi root directory: value changed concurrently");
+            }
+            Err(error) => {
                 log::warn!("Failed to persist normalized Pi root directory: {error}");
             }
         }
-        Ok(Some(normalized_root_dir))
-    })
+    }
+    Ok(Some(normalized_root_dir))
 }
 
 fn get_pi_skills_path_from_location(location: &RuntimeLocationInfo) -> PathBuf {

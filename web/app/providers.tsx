@@ -6,12 +6,13 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { TRAY_CONFIG_REFRESH_EVENT } from '@/constants/configEvents';
 import { useAppStore } from '@/stores';
 import { useThemeStore } from '@/stores/themeStore';
+import { useUpdateManager, type UpdateDownloadProgress, type UpdateInfo } from '@/hooks/useUpdateManager';
 import {
   setWindowBackgroundColor,
   loadCachedPresetModels,
   fetchRemotePresetModels,
 } from '@/services';
-import i18n from '@/i18n';
+import i18n, { loadLanguageResources } from '@/i18n';
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -23,26 +24,25 @@ const antdLocales = {
 };
 
 /**
- * Inner component that uses App.useApp() to get theme-aware notification
- */
-/**
- * Globally-mounted deep-link import dialog: listens for `deep-link-import` /
- * `deep-link-error` events from the backend and shows a confirmation modal
- * (with a masked API key) before persisting via `import_from_deeplink_unified`.
- * The hook marks the frontend listener ready and drains a cold-start pending
- * request after the listeners are attached.
+ * Global bridge for backend events that need an app-wide response:
+ * - `config-changed` (tray): reload active pages so they resync to disk state.
+ * - `update-available` / `update-download-progress`: surface the startup
+ *   auto-update check and in-place download progress via a non-intrusive
+ *   notification instead of a blocking dialog.
  */
 const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-
+  const { showUpdatePrompt, showInstallProgress } = useUpdateManager();
 
   // Keep a global fallback for tray-driven config changes so inactive pages and
   // subpanels that do not maintain their own listeners still resync to disk state.
   React.useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let unlistenConfig: (() => void) | undefined;
+    let unlistenUpdate: (() => void) | undefined;
+    let unlistenProgress: (() => void) | undefined;
 
-    const setupListener = async () => {
+    const setupListeners = async () => {
       try {
-        unlisten = await listen<string>('config-changed', async (event) => {
+        unlistenConfig = await listen<string>('config-changed', async (event) => {
           if (event.payload === 'tray') {
             const refreshEvent = new CustomEvent(TRAY_CONFIG_REFRESH_EVENT, {
               cancelable: true,
@@ -57,16 +57,35 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
       } catch (error) {
         console.error('Failed to setup config change listener:', error);
       }
-    };
 
-    setupListener();
+      try {
+        unlistenUpdate = await listen<UpdateInfo>('update-available', (event) => {
+          showUpdatePrompt(event.payload);
+        });
+      } catch (error) {
+        console.error('Failed to setup update listener:', error);
+      }
 
-    return () => {
-      if (unlisten) {
-        unlisten();
+      try {
+        unlistenProgress = await listen<UpdateDownloadProgress>(
+          'update-download-progress',
+          (event) => {
+            showInstallProgress(event.payload);
+          },
+        );
+      } catch (error) {
+        console.error('Failed to setup update progress listener:', error);
       }
     };
-  }, []);
+
+    void setupListeners();
+
+    return () => {
+      unlistenConfig?.();
+      unlistenUpdate?.();
+      unlistenProgress?.();
+    };
+  }, [showInstallProgress, showUpdatePrompt]);
 
   return (
     <>
@@ -156,10 +175,12 @@ export const Providers: React.FC<ProvidersProps> = ({ children }) => {
     }
   }, [resolvedTheme, themeInitialized]);
 
-  // Sync i18n language when app language changes
+  // Sync i18n language when app language changes (locale bundle loads on demand)
   React.useEffect(() => {
     if (appInitialized && i18n.language !== language) {
-      i18n.changeLanguage(language);
+      void loadLanguageResources(language).then(() => {
+        void i18n.changeLanguage(language);
+      });
     }
   }, [language, appInitialized]);
 

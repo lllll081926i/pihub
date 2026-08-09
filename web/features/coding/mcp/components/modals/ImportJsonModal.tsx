@@ -6,7 +6,7 @@ import { useMcpStore } from '../../stores/mcpStore';
 import * as mcpApi from '../../services/mcpApi';
 import type { CreateMcpServerInput, McpServer, StdioConfig, HttpConfig } from '../../types';
 import { parseMcpServersFromJsonValue } from '../../utils/mcpJsonImport';
-import JsonEditor from '@/components/common/JsonEditor';
+import { LazyJsonEditor as JsonEditor } from '@/components/common/lazyMonaco';
 import styles from './ImportMcpModal.module.less';
 import addMcpStyles from './AddMcpModal.module.less';
 

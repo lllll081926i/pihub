@@ -329,6 +329,10 @@ pub fn from_db_skill_preferences(value: Value) -> SkillPreferences {
             .get("show_skills_in_tray")
             .and_then(|v| v.as_bool())
             .unwrap_or(false),
+        card_columns: value
+            .get("card_columns")
+            .and_then(|v| v.as_str())
+            .map(str::to_string),
         updated_at: value
             .get("updated_at")
             .and_then(|v| v.as_i64())
@@ -345,7 +349,7 @@ fn normalize_default_view_mode(value: Option<&str>) -> String {
 
 /// Convert SkillPreferences to database payload
 pub fn to_skill_preferences_payload(prefs: &SkillPreferences) -> Value {
-    serde_json::json!({
+    let mut payload = serde_json::json!({
         "default_view_mode": normalize_default_view_mode(Some(&prefs.default_view_mode)),
         "git_cache_cleanup_days": prefs.git_cache_cleanup_days,
         "git_cache_ttl_secs": prefs.git_cache_ttl_secs,
@@ -353,7 +357,11 @@ pub fn to_skill_preferences_payload(prefs: &SkillPreferences) -> Value {
         "installed_tools": prefs.installed_tools,
         "show_skills_in_tray": prefs.show_skills_in_tray,
         "updated_at": prefs.updated_at,
-    })
+    });
+    if let Some(columns) = &prefs.card_columns {
+        payload["card_columns"] = serde_json::json!(columns);
+    }
+    payload
 }
 
 // ==================== CustomTool ====================

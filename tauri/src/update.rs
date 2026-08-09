@@ -24,7 +24,7 @@ struct PlatformInfo {
 }
 
 /// Update check result
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateCheckResult {
     pub has_update: bool,
     pub current_version: String,
@@ -40,6 +40,15 @@ pub struct UpdateCheckResult {
 pub async fn check_for_updates(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, SqliteDbState>,
+) -> Result<UpdateCheckResult, String> {
+    check_for_updates_internal(&app_handle, state.inner()).await
+}
+
+/// Shared update-check logic used both by the `check_for_updates` command and
+/// the startup auto-check task (see `lib.rs`).
+pub async fn check_for_updates_internal(
+    app_handle: &tauri::AppHandle,
+    state: &SqliteDbState,
 ) -> Result<UpdateCheckResult, String> {
     const GITHUB_REPO: &str = "lllll081926i/pihub";
     let latest_json_url = format!(

@@ -261,6 +261,14 @@ export const setDefaultViewMode = async (mode: SkillViewMode): Promise<void> => 
   return invoke('skills_set_default_view_mode', { mode });
 };
 
+export const getSkillCardColumns = async (): Promise<string> => {
+  return invoke<string>('skills_get_card_columns');
+};
+
+export const setSkillCardColumns = async (columns: string): Promise<void> => {
+  return invoke('skills_set_card_columns', { columns });
+};
+
 // Skill Repos
 export const getSkillRepos = async (): Promise<SkillRepo[]> => {
   return invoke<SkillRepo[]>('skills_get_repos');

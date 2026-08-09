@@ -9,6 +9,9 @@ interface ManagementCardProps {
   selectable?: boolean;
   children: React.ReactNode;
   className?: string;
+  onContextMenu?: React.MouseEventHandler<HTMLDivElement>;
+  /** Optional mount stagger delay (ms) for the enter animation. */
+  enterDelay?: number;
 }
 
 export const ManagementCard: React.FC<ManagementCardProps> = ({
@@ -18,9 +21,14 @@ export const ManagementCard: React.FC<ManagementCardProps> = ({
   selectable,
   children,
   className,
+  onContextMenu,
+  enterDelay,
 }) => (
-  <div ref={containerRef} style={containerStyle} className={styles.cardContainer}>
-    <div className={`${styles.card}${selectable && selected ? ` ${styles.selected}` : ''}${className ? ` ${className}` : ''}`}>
+  <div ref={containerRef} style={containerStyle} onContextMenu={onContextMenu} className={styles.cardContainer}>
+    <div
+      className={`${styles.card}${selectable && selected ? ` ${styles.selected}` : ''}${className ? ` ${className}` : ''}`}
+      style={enterDelay ? { animationDelay: `${enterDelay}ms` } : undefined}
+    >
       {children}
     </div>
   </div>

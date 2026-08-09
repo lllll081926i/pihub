@@ -27,7 +27,7 @@ import { useTranslation } from 'react-i18next';
 import AllApiHubIcon from '@/components/common/AllApiHubIcon';
 import FetchModelsModal from '@/components/common/FetchModelsModal';
 import type { FetchModelsApplyResult } from '@/components/common/FetchModelsModal/types';
-import JsonEditor from '@/components/common/JsonEditor';
+import { LazyJsonEditor as JsonEditor } from '@/components/common/lazyMonaco';
 import ModelFormModal from '@/components/common/ModelFormModal';
 import type { ModelFormValues } from '@/components/common/ModelFormModal';
 import ProviderCard from '@/components/common/ProviderCard';

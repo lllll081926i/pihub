@@ -80,6 +80,9 @@ pub struct SkillPreferences {
     pub known_tool_versions: Option<Value>,
     pub installed_tools: Option<Vec<String>>, // Detected installed tools
     pub show_skills_in_tray: bool,            // Show skills in system tray quick menu
+    /// Grid column preference for the management page: "auto" or a digit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub card_columns: Option<String>,
     pub updated_at: i64,
 }
 
@@ -93,6 +96,7 @@ impl Default for SkillPreferences {
             known_tool_versions: None,
             installed_tools: None,
             show_skills_in_tray: false,
+            card_columns: None,
             updated_at: 0,
         }
     }

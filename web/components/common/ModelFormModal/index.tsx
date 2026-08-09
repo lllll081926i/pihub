@@ -3,7 +3,7 @@ import { Modal, Form, Input, AutoComplete, Button, Select, message, Typography, 
 import { RightOutlined, DownOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/stores';
-import JsonEditor from '@/components/common/JsonEditor';
+import { LazyJsonEditor as JsonEditor } from '@/components/common/lazyMonaco';
 import type { I18nPrefix } from '@/components/common/ProviderCard/types';
 import {
   PRESET_MODELS,

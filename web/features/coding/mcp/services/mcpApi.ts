@@ -82,6 +82,15 @@ export const setMcpShowInTray = async (enabled: boolean): Promise<void> => {
   return invoke('mcp_set_show_in_tray', { enabled });
 };
 
+// Card grid column preference
+export const getMcpCardColumns = async (): Promise<string> => {
+  return invoke<string>('mcp_get_card_columns');
+};
+
+export const setMcpCardColumns = async (columns: string): Promise<void> => {
+  return invoke('mcp_set_card_columns', { columns });
+};
+
 // Custom Tool Management
 export interface AddMcpCustomToolInput {
   key: string;

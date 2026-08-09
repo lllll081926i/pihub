@@ -83,3 +83,8 @@ sequenceDiagram
 - 至少验证：搜索、平铺/分组切换、批量选择、批量刷新/删除仍一致工作。
 - 至少验证：导入或安装新 skill 后列表能回到中央仓库视角正确展示。
 - 涉及 Inventory JSON 或禁用状态时，至少验证：导出完整清单文件、复制整理 prompt、选择 JSON 文件预览导入、确认默认禁用数量、apply 后刷新列表、禁用 skill 仍留在原分组、重新启用可恢复历史工具。
+
+## 补充经验（2026-08）
+
+- `card_columns`（网格列数偏好）与 `default_view_mode` 一样持久化到 SkillPreferences（`skills_get/set_card_columns`，存 `"auto"` 或数字字符串）；页面启动时异步恢复并用 ref 防止恢复覆盖用户新选择，变更时即时保存。新增同类 UI 偏好时复用 skill_store 的 `get_setting/set_setting` 白名单模式，不要另开存储。
+- 卡片右键菜单使用共享 `web/components/common/ContextMenu`（portal 定位 + 外部点击/Esc 关闭）；菜单项动作直接复用卡片现有 handler（`handleIconClick`/`handleOpenCentralPath`），不要复制逻辑。菜单项数组需显式标注 `ContextMenuItem[]`，避免递归类型推断。

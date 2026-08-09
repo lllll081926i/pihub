@@ -68,3 +68,8 @@ sequenceDiagram
 
 - 至少验证：新增、编辑、删除、切换工具、拖拽排序都能刷新到正确列表。
 - 至少验证：导入已有配置或 JSON 后，列表和扫描结果都会更新。
+
+## 补充经验（2026-08）
+
+- `card_columns` 网格列数偏好持久化在 McpPreferences（`mcp_get/set_card_columns`，值 `"auto"` 或数字字符串）；McpPage 启动恢复（防覆盖 ref）+ 变更即时保存，与 show_in_tray 同一 singleton 记录。
+- 卡片右键菜单用共享 `web/components/common/ContextMenu`：MCP 卡片提供编辑/备注/复制名称/复制启动命令/删除。新增卡片级快捷操作优先放右键菜单，避免继续堆 icon 按钮。

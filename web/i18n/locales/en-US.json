@@ -75,7 +75,9 @@
     "backupImport": "Import backup",
     "backupExportSuccess": "Backup exported",
     "backupImportTitle": "Restore backup",
-    "backupImportContent": "Backup imported. Restart the app to apply it. Restart now?"
+    "backupImportContent": "Backup imported. Restart the app to apply it. Restart now?",
+    "checkForUpdates": "Check for Updates",
+    "updateCheck": "Update"
   },
   "common": {
     "save": "Save",
@@ -173,7 +175,10 @@
     "backToPi": "Back to Pi",
     "collapse": "Collapse",
     "expandMore": "Expand more ({{count}})",
-    "more": "More"
+    "more": "More",
+    "copyPath": "Copy Path",
+    "retry": "Retry",
+    "loadFailed": "Failed to Load"
   },
   "sessionManager": {
     "title": "Session Manager",
@@ -645,7 +650,13 @@
       "migrationConflicts": "Migration conflicts"
     },
     "groupCentral": "Global directory Skills",
-    "sourceFolderMissing": "Original source folder not found. It may have been moved or deleted."
+    "sourceFolderMissing": "Original source folder not found. It may have been moved or deleted.",
+    "context": {
+      "openSource": "Open Source",
+      "openManaged": "Open Managed Folder",
+      "copyPath": "Copy Path",
+      "editMetadata": "Edit Info"
+    }
   },
   "mcp": {
     "title": "MCP Management",
@@ -843,7 +854,12 @@
       "configField": "MCP Field Name",
       "configFieldRequired": "Please enter MCP field name"
     },
-    "timeoutPiLabel": "Pi connection timeout (ms)"
+    "timeoutPiLabel": "Pi connection timeout (ms)",
+    "context": {
+      "copyName": "Copy Name",
+      "copyCommand": "Copy Command",
+      "editMetadata": "Edit Note"
+    }
   },
   "pi": {
     "rootPathSource": {
@@ -869,8 +885,8 @@
     },
     "prompt": {
       "title": "Global Prompt",
-      "sectionHint": "Use \"Add Config\" to prepare multiple Pi global prompt presets, then switch quickly with \"Apply\" or the tray menu.",
-      "sectionWarning": "Configs are stored in the app database. Do not edit the local `AGENTS.md` file manually; it will be overwritten the next time you apply a config.",
+      "sectionHint": "Prepare multiple Pi global prompt presets and switch quickly with \"Apply\" or the tray menu.",
+      "sectionWarning": "Configs live in the app database. Don't edit the local `AGENTS.md` manually; the next \"Apply\" overwrites it with the selected config.",
       "emptyText": "No prompt presets yet. Use the top-right button to add one.",
       "addConfig": "Add Global Prompt",
       "editConfig": "Edit Global Prompt",
@@ -1228,7 +1244,11 @@
     "cacheReadLabel": "Cache Read",
     "modelRanking": "Model Ranking",
     "model": "Model",
-    "refreshing": "Refreshing in background…"
+    "refreshing": "Refreshing in background…",
+    "range7": "7 days",
+    "range30": "30 days",
+    "range90": "90 days",
+    "rangeAll": "All"
   },
   "piModels": {
     "fetchModels": {
@@ -1279,5 +1299,18 @@
       "variants": "Variants",
       "variantsHint": "Extended JSON config"
     }
+  },
+  "update": {
+    "title": "Update Available",
+    "description": "Current version {{current}}, latest version {{latest}}.",
+    "downloadAndInstall": "Download & Install",
+    "later": "Later",
+    "downloading": "Downloading update {{percent}}%",
+    "installing": "Installing update, the app will restart…",
+    "installFailed": "Update install failed: {{error}}",
+    "installSuccess": "Update installed, the app is about to restart",
+    "viewReleaseNotes": "Release notes",
+    "noUpdate": "You are up to date",
+    "checkFailed": "Failed to check for updates: {{error}}"
   }
 }

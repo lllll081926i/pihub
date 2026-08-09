@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import PageContainer from '@/components/common/PageContainer';
 import Section from '@/components/common/Section';
-import JsonEditor from '@/components/common/JsonEditor';
+import { LazyJsonEditor as JsonEditor } from '@/components/common/lazyMonaco';
 import { refreshTrayMenu } from '@/services/appApi';
 import { savePiOtherSettings } from '@/services/piApi';
 

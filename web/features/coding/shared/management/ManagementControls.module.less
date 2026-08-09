@@ -44,6 +44,16 @@
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    box-shadow 0.14s ease,
+    transform 0.1s ease;
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
 }
 
 .buttonCompact {
@@ -110,10 +120,19 @@
   justify-content: center;
   border-radius: 7px;
   flex-shrink: 0;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    transform 0.1s ease;
 
   &:hover:not(:disabled) {
     color: var(--color-text-primary);
     background: var(--color-bg-hover);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.94);
   }
 }
 
@@ -411,5 +430,18 @@
   .spinner {
     transition: none;
     animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .iconButton,
+  .menuTrigger,
+  .searchClearButton {
+    transition: none;
+
+    &:active:not(:disabled) {
+      transform: none;
+    }
   }
 }

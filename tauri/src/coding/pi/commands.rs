@@ -1,8 +1,10 @@
 use chrono::Local;
 use serde_json::{json, Map, Value};
 use std::collections::BTreeSet;
-use std::fs;
 use std::path::{Path, PathBuf};
+
+#[cfg(unix)]
+use std::fs;
 
 use super::adapter;
 use super::constants::{
@@ -11,7 +13,8 @@ use super::constants::{
 };
 use super::types::*;
 use crate::coding::db_id::db_new_id;
-use crate::coding::prompt_file::{read_prompt_content_file, write_prompt_content_file};
+use crate::coding::file_io;
+use crate::coding::prompt_file::write_prompt_content_file;
 use crate::coding::runtime_location;
 use crate::coding::skills::commands::resync_all_skills_if_tool_path_changed;
 use crate::db::helpers::{
@@ -108,42 +111,6 @@ pub async fn get_pi_prompt_path_async(db: &SqliteDbState) -> Result<PathBuf, Str
     Ok(get_pi_prompt_path_from_root(
         &get_pi_root_dir_from_db_async(db).await?,
     ))
-}
-
-fn read_json_object_or_empty(path: &Path) -> Result<Value, String> {
-    if !path.exists() {
-        return Ok(Value::Object(Map::new()));
-    }
-    let content = fs::read_to_string(path)
-        .map_err(|error| format!("Failed to read {}: {error}", path.display()))?;
-    if content.trim().is_empty() {
-        return Ok(Value::Object(Map::new()));
-    }
-    let parsed: Value = serde_json::from_str(&content)
-        .map_err(|error| format!("Failed to parse {}: {error}", path.display()))?;
-    if parsed.is_object() {
-        Ok(parsed)
-    } else {
-        Err(format!("{} must contain a JSON object", path.display()))
-    }
-}
-
-fn write_json_object(path: &Path, value: &Value) -> Result<(), String> {
-    if !value.is_object() {
-        return Err(format!(
-            "{} must be written as a JSON object",
-            path.display()
-        ));
-    }
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|error| format!("Failed to create {}: {error}", parent.display()))?;
-    }
-    let content = serde_json::to_string_pretty(value)
-        .map_err(|error| format!("Failed to serialize {}: {error}", path.display()))?;
-    fs::write(path, format!("{content}\n"))
-        .map_err(|error| format!("Failed to write {}: {error}", path.display()))?;
-    Ok(())
 }
 
 #[cfg(unix)]
@@ -488,6 +455,11 @@ pub async fn get_pi_settings_config(
 /// A WSL directory named `.pi` can itself be a valid custom Pi root. Only treat
 /// it as the standard parent directory when the selected directory has no Pi
 /// runtime data and its `agent` child contains an existing Pi runtime layout.
+///
+/// Sync variant kept for unit tests; async callers must use
+/// `normalize_pi_root_dir_async` so unreachable WSL UNC probes cannot block the
+/// async runtime worker.
+#[cfg(test)]
 pub(crate) fn normalize_pi_root_dir(path: &str) -> String {
     if let Some(wsl_info) = runtime_location::parse_wsl_unc_path(path) {
         let linux_path = wsl_info.linux_path.trim_end_matches('/');
@@ -501,11 +473,13 @@ pub(crate) fn normalize_pi_root_dir(path: &str) -> String {
     path.to_string()
 }
 
+#[cfg(test)]
 fn should_use_pi_agent_subdirectory(selected_root: &Path) -> bool {
     !contains_pi_runtime_layout(selected_root)
         && contains_pi_runtime_layout(&selected_root.join("agent"))
 }
 
+#[cfg(test)]
 fn contains_pi_runtime_layout(root: &Path) -> bool {
     [
         PI_SETTINGS_FILE,
@@ -517,6 +491,45 @@ fn contains_pi_runtime_layout(root: &Path) -> bool {
     .iter()
     .any(|file_name| root.join(file_name).is_file())
         || root.join("extensions").is_dir()
+}
+
+/// Async variant of `normalize_pi_root_dir` for async contexts (Tauri commands,
+/// runtime-location resolution) where the selected root may be an unreachable
+/// WSL UNC / network path whose `is_file`/`is_dir` checks must not block the
+/// async runtime worker.
+pub async fn normalize_pi_root_dir_async(path: &str) -> String {
+    if let Some(wsl_info) = runtime_location::parse_wsl_unc_path(path) {
+        let linux_path = wsl_info.linux_path.trim_end_matches('/');
+        if linux_path.ends_with("/.pi")
+            && should_use_pi_agent_subdirectory_async(Path::new(path)).await
+        {
+            let new_linux_path = format!("{}/agent", linux_path);
+            return runtime_location::build_windows_unc_path(&wsl_info.distro, &new_linux_path)
+                .to_string_lossy()
+                .to_string();
+        }
+    }
+    path.to_string()
+}
+
+async fn should_use_pi_agent_subdirectory_async(selected_root: &Path) -> bool {
+    !contains_pi_runtime_layout_async(selected_root).await
+        && contains_pi_runtime_layout_async(&selected_root.join("agent")).await
+}
+
+async fn contains_pi_runtime_layout_async(root: &Path) -> bool {
+    for file_name in [
+        PI_SETTINGS_FILE,
+        PI_AUTH_FILE,
+        PI_MODELS_FILE,
+        PI_MCP_FILE,
+        PI_PROMPT_FILE,
+    ] {
+        if file_io::path_is_file_async(&root.join(file_name)).await {
+            return true;
+        }
+    }
+    file_io::path_is_dir_async(&root.join("extensions")).await
 }
 
 #[tauri::command]
@@ -531,13 +544,15 @@ pub async fn save_pi_settings_config(
     let root_dir = if input.clear_root_dir {
         None
     } else {
-        input
+        match input
             .root_dir
             .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .map(normalize_pi_root_dir)
-            .or_else(|| existing.and_then(|value| value.root_dir))
+        {
+            Some(value) => Some(normalize_pi_root_dir_async(value).await),
+            None => existing.and_then(|value| value.root_dir),
+        }
     };
     let data = adapter::settings_to_db_value(root_dir.as_deref());
     db.with_conn(|conn| db_put(conn, DbTable::PiSettingsConfig, "common", &data))?;
@@ -560,9 +575,12 @@ pub async fn read_pi_runtime_config(
     let models_path = get_pi_models_path_from_root(&root_dir);
     let prompt_path = get_pi_prompt_path_from_root(&root_dir);
 
-    let settings = read_json_object_or_empty(&settings_path)?;
-    let auth = read_json_object_or_empty(&auth_path)?;
-    let models = read_json_object_or_empty(&models_path)?;
+    // Best-effort display read: an unreachable WSL/network root times out after
+    // 10s per file; degrade to an empty object instead of failing the whole page
+    // (other IO errors such as permission failures still propagate).
+    let settings = read_config_file_or_empty(&settings_path, "settings").await?;
+    let auth = read_config_file_or_empty(&auth_path, "auth").await?;
+    let models = read_config_file_or_empty(&models_path, "models").await?;
 
     Ok(PiRuntimeConfig {
         root_path_info,
@@ -588,7 +606,7 @@ pub async fn save_pi_model_settings(
 ) -> Result<PiRuntimeConfig, String> {
     let db = state.db();
     let settings_path = get_pi_settings_path_async(&db).await?;
-    let mut settings = read_json_object_or_empty(&settings_path)?;
+    let mut settings = file_io::read_json_object_or_empty_async(&settings_path).await?;
     let settings_object = object_mut(&mut settings)?;
 
     match input.default_provider {
@@ -619,9 +637,27 @@ pub async fn save_pi_model_settings(
         None => {}
     }
 
-    write_json_object(&settings_path, &settings)?;
+    file_io::write_json_object_async(&settings_path, &settings).await?;
     emit_config_changed(&app, "window");
     read_pi_runtime_config(state).await
+}
+
+/// Read a Pi runtime config file for display purposes, degrading timeouts to an
+/// empty object (an unreachable WSL/network root must not blank the whole page).
+/// Permission and parse errors still propagate.
+async fn read_config_file_or_empty(path: &Path, label: &str) -> Result<Value, String> {
+    match file_io::read_json_object_or_empty_async(path).await {
+        Ok(value) => Ok(value),
+        Err(error) if is_file_io_timeout(&error) => {
+            log::warn!("Reading Pi {label} config timed out ({}); using empty object", path.display());
+            Ok(Value::Object(Map::new()))
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn is_file_io_timeout(error: &str) -> bool {
+    error.contains("timed out")
 }
 
 pub async fn apply_pi_default_model_internal<R: Runtime>(
@@ -641,14 +677,14 @@ pub async fn apply_pi_default_model_internal<R: Runtime>(
     }
 
     let settings_path = get_pi_settings_path_async(db).await?;
-    let mut settings = read_json_object_or_empty(&settings_path)?;
+    let mut settings = file_io::read_json_object_or_empty_async(&settings_path).await?;
     let current_thinking_level = settings
         .get("defaultThinkingLevel")
         .and_then(Value::as_str)
         .map(str::to_string);
     let should_remove_thinking_level = if let Some(thinking_level) = current_thinking_level {
         let models_path = get_pi_models_path_async(db).await?;
-        let models = read_json_object_or_empty(&models_path)?;
+        let models = file_io::read_json_object_or_empty_async(&models_path).await?;
         find_model_config(&models, provider_key, model_id)
             .map(|model| !model_supports_thinking_level(model, &thinking_level))
             .unwrap_or(false)
@@ -661,7 +697,7 @@ pub async fn apply_pi_default_model_internal<R: Runtime>(
     if should_remove_thinking_level {
         settings_object.remove("defaultThinkingLevel");
     }
-    write_json_object(&settings_path, &settings)?;
+    file_io::write_json_object_async(&settings_path, &settings).await?;
     emit_config_changed(app, if from_tray { "tray" } else { "window" });
     Ok(())
 }
@@ -678,11 +714,11 @@ pub async fn save_pi_other_settings(
 
     let db = state.db();
     let settings_path = get_pi_settings_path_async(&db).await?;
-    let mut settings = read_json_object_or_empty(&settings_path)?;
+    let mut settings = file_io::read_json_object_or_empty_async(&settings_path).await?;
     let settings_object = object_mut(&mut settings)?;
     apply_pi_other_settings(settings_object, other_settings.as_object().unwrap());
 
-    write_json_object(&settings_path, &settings)?;
+    file_io::write_json_object_async(&settings_path, &settings).await?;
     emit_config_changed(&app, "window");
     read_pi_runtime_config(state).await
 }
@@ -703,9 +739,9 @@ pub async fn save_pi_auth_provider(
 
     let db = state.db();
     let auth_path = get_pi_auth_path_async(&db).await?;
-    let mut auth = read_json_object_or_empty(&auth_path)?;
+    let mut auth = file_io::read_json_object_or_empty_async(&auth_path).await?;
     object_mut(&mut auth)?.insert(provider_key.to_string(), input.credential);
-    write_json_object(&auth_path, &auth)?;
+    file_io::write_json_object_async(&auth_path, &auth).await?;
     set_auth_file_permissions(&auth_path);
     emit_config_changed(&app, "window");
     read_pi_runtime_config(state).await
@@ -727,7 +763,7 @@ pub async fn save_pi_models_provider(
 
     let db = state.db();
     let models_path = get_pi_models_path_async(&db).await?;
-    let mut models = read_json_object_or_empty(&models_path)?;
+    let mut models = file_io::read_json_object_or_empty_async(&models_path).await?;
     let models_object = object_mut(&mut models)?;
     if !models_object
         .get("providers")
@@ -742,7 +778,7 @@ pub async fn save_pi_models_provider(
         .ok_or_else(|| "models.providers must be a JSON object".to_string())?
         .insert(provider_key.to_string(), input.provider);
 
-    write_json_object(&models_path, &models)?;
+    file_io::write_json_object_async(&models_path, &models).await?;
     emit_config_changed(&app, "window");
     read_pi_runtime_config(state).await
 }
@@ -762,19 +798,19 @@ pub async fn delete_pi_runtime_provider(
 
     if matches!(scope, PiDeleteScope::Credential | PiDeleteScope::Both) {
         let auth_path = get_pi_auth_path_async(&db).await?;
-        let mut auth = read_json_object_or_empty(&auth_path)?;
+        let mut auth = file_io::read_json_object_or_empty_async(&auth_path).await?;
         object_mut(&mut auth)?.remove(provider_key);
-        write_json_object(&auth_path, &auth)?;
+        file_io::write_json_object_async(&auth_path, &auth).await?;
         set_auth_file_permissions(&auth_path);
     }
 
     if matches!(scope, PiDeleteScope::ProviderConfig | PiDeleteScope::Both) {
         let models_path = get_pi_models_path_async(&db).await?;
-        let mut models = read_json_object_or_empty(&models_path)?;
+        let mut models = file_io::read_json_object_or_empty_async(&models_path).await?;
         if let Some(providers) = models.get_mut("providers").and_then(Value::as_object_mut) {
             providers.remove(provider_key);
         }
-        write_json_object(&models_path, &models)?;
+        file_io::write_json_object_async(&models_path, &models).await?;
     }
 
     emit_config_changed(&app, "window");
@@ -808,10 +844,15 @@ fn get_pi_prompt_from_sqlite(
 
 async fn get_local_prompt_config(db: &SqliteDbState) -> Result<Option<PiPromptConfig>, String> {
     let prompt_path = get_pi_prompt_path_async(db).await?;
-    if !prompt_path.exists() {
+    if !file_io::path_exists_async(&prompt_path).await {
         return Ok(None);
     }
-    let Some(content) = read_prompt_content_file(&prompt_path, "Pi")? else {
+    let content = file_io::read_to_string_async(&prompt_path)
+        .await
+        .map_err(|error| format!("Failed to read Pi prompt file: {error}"))?;
+    let trimmed = content.trim().to_string();
+    let content_option = if trimmed.is_empty() { None } else { Some(trimmed) };
+    let Some(content) = content_option else {
         return Ok(None);
     };
     Ok(Some(PiPromptConfig {
@@ -1052,6 +1093,7 @@ pub async fn save_pi_local_prompt_config(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn thinking_level_map_only_defaults_standard_omitted_levels_to_supported() {

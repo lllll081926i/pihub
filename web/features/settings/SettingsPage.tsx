@@ -29,12 +29,14 @@ import {
   setAutoLaunch,
   restartApp,
   testProxyConnection,
+  type AppSettings,
 } from '@/services/settingsApi';
 import { clearTokenStatsCache } from '@/services/tokenStatsApi';
 import { exportDatabaseBackup, importDatabaseBackup } from '@/services/backupApi';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '@/stores';
 import { useThemeStore } from '@/stores/themeStore';
+import { useUpdateManager } from '@/hooks/useUpdateManager';
 import pkg from '../../../package.json';
 import styles from './SettingsPage.module.less';
 
@@ -52,6 +54,7 @@ const SettingsPage: React.FC = () => {
   const { t } = useTranslation();
   const { initSettings } = useSettingsStore();
   const { setMode } = useThemeStore();
+  const { checkNow, checking } = useUpdateManager();
   const [loading, setLoading] = React.useState(false);
   const [initLoading, setInitLoading] = React.useState(true);
   const [autoLaunchStatus, setAutoLaunchStatus] = React.useState<boolean | null>(null);
@@ -60,6 +63,7 @@ const SettingsPage: React.FC = () => {
   const [appDataDir, setAppDataDir] = React.useState('');
   const [testingProxy, setTestingProxy] = React.useState(false);
   const [clearingCache, setClearingCache] = React.useState(false);
+  const loadedSettingsRef = React.useRef<AppSettings | null>(null);
   const [appSettings, setAppSettings] = React.useState({
     language: 'zh-CN',
     theme: 'system' as 'light' | 'dark' | 'system',
@@ -101,6 +105,10 @@ const SettingsPage: React.FC = () => {
         });
         setAutoLaunchStatus(autoStatus);
         setAppDataDir(dataDir || '');
+        // Keep the full loaded record so a later save preserves fields this page
+        // does not manage (legacy current_module/current_sub_tab/visible_tabs/
+        // sidebar_hidden_by_page) instead of overwriting them with defaults.
+        loadedSettingsRef.current = s;
       } catch (error) {
         console.error('Failed to load settings:', error);
       } finally {
@@ -113,10 +121,10 @@ const SettingsPage: React.FC = () => {
   const handleSave = async () => {
     setLoading(true);
     try {
+      const loaded = loadedSettingsRef.current;
       await saveSettings({
+        // Fields this page manages.
         language: appSettings.language,
-        current_module: 'coding',
-        current_sub_tab: 'pi',
         proxy_mode: appSettings.proxyMode,
         proxy_url: appSettings.proxyUrl,
         theme: appSettings.theme,
@@ -124,8 +132,14 @@ const SettingsPage: React.FC = () => {
         minimize_to_tray_on_close: appSettings.minimizeToTray,
         start_minimized: appSettings.startMinimized,
         auto_check_update: appSettings.autoCheckUpdate,
-        visible_tabs: ['pi', 'skills', 'mcp'],
-        sidebar_hidden_by_page: { pi: false },
+        // Legacy fields this page does not manage: preserve whatever is stored
+        // instead of clobbering it with hardcoded defaults.
+        current_module: loaded?.current_module ?? 'coding',
+        current_sub_tab: loaded?.current_sub_tab ?? 'pi',
+        visible_tabs: loaded?.visible_tabs?.length
+          ? loaded.visible_tabs
+          : ['pi', 'skills', 'mcp'],
+        sidebar_hidden_by_page: loaded?.sidebar_hidden_by_page ?? { pi: false },
       });
       setMode(appSettings.theme);
       await initSettings();
@@ -191,6 +205,12 @@ const SettingsPage: React.FC = () => {
           <Text code className={styles.infoValue} style={{ fontSize: 12 }}>
             {appDataDir || t('common.loading')}
           </Text>
+        </div>
+        <div className={styles.infoRow}>
+          <Text className={styles.infoLabel}>{t('settings.updateCheck')}</Text>
+          <Button onClick={() => void checkNow()} loading={checking}>
+            {t('settings.checkForUpdates')}
+          </Button>
         </div>
       </div>
     </div>

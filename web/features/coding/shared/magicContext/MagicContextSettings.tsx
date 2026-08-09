@@ -28,7 +28,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import JSON5 from 'json5';
 import { useTranslation } from 'react-i18next';
 
-import JsoncEditor from '@/components/common/JsoncEditor';
+import { LazyJsoncEditor as JsoncEditor } from '@/components/common/lazyMonaco';
 import {
   createMagicContextConfig,
   readMagicContextConfig,

@@ -75,7 +75,9 @@
     "backupImport": "导入备份",
     "backupExportSuccess": "备份已导出",
     "backupImportTitle": "恢复备份",
-    "backupImportContent": "备份已导入，需要重启应用才能生效。是否现在重启？"
+    "backupImportContent": "备份已导入，需要重启应用才能生效。是否现在重启？",
+    "checkForUpdates": "检查更新",
+    "updateCheck": "更新"
   },
   "common": {
     "save": "保存",
@@ -173,7 +175,10 @@
     "backToPi": "返回 Pi",
     "collapse": "收起",
     "expandMore": "展开更多 ({{count}})",
-    "more": "更多"
+    "more": "更多",
+    "copyPath": "复制路径",
+    "retry": "重试",
+    "loadFailed": "加载失败"
   },
   "sessionManager": {
     "title": "会话管理",
@@ -642,7 +647,13 @@
       "migrationConflicts": "迁移冲突"
     },
     "groupCentral": "全局目录 Skills",
-    "sourceFolderMissing": "原始来源目录不存在，可能已被移动或删除"
+    "sourceFolderMissing": "原始来源目录不存在，可能已被移动或删除",
+    "context": {
+      "openSource": "打开来源",
+      "openManaged": "打开管理目录",
+      "copyPath": "复制路径",
+      "editMetadata": "编辑信息"
+    }
   },
   "mcp": {
     "title": "MCP 管理",
@@ -840,7 +851,12 @@
       "configField": "MCP 字段名",
       "configFieldRequired": "请输入 MCP 字段名"
     },
-    "timeoutPiLabel": "Pi 连接超时（ms）"
+    "timeoutPiLabel": "Pi 连接超时（ms）",
+    "context": {
+      "copyName": "复制名称",
+      "copyCommand": "复制启动命令",
+      "editMetadata": "编辑备注"
+    }
   },
   "pi": {
     "rootPathSource": {
@@ -866,8 +882,8 @@
     },
     "prompt": {
       "title": "全局提示词",
-      "sectionHint": "可通过右上角「添加配置」预设多套 Pi 全局提示词方案，并通过「应用」或系统托盘快捷切换。",
-      "sectionWarning": "配置存储在应用数据库中，请勿手动修改本地 `AGENTS.md` 文件；下次执行「应用」时，文件内容会按当前所选配置重新覆盖。",
+      "sectionHint": "可预设多套 Pi 全局提示词，通过「应用」或系统托盘快速切换。",
+      "sectionWarning": "配置存于应用数据库；请勿手改本地 `AGENTS.md`，下次「应用」会按所选配置覆盖。",
       "emptyText": "暂无提示词配置，点击右上角按钮添加",
       "addConfig": "添加全局提示词",
       "editConfig": "编辑全局提示词",
@@ -1225,7 +1241,11 @@
     "cacheReadLabel": "缓存读取",
     "modelRanking": "模型使用排行",
     "model": "模型",
-    "refreshing": "正在后台更新…"
+    "refreshing": "正在后台更新…",
+    "range7": "近 7 天",
+    "range30": "近 30 天",
+    "range90": "近 90 天",
+    "rangeAll": "全部"
   },
   "piModels": {
     "fetchModels": {
@@ -1276,5 +1296,18 @@
       "variants": "扩展配置",
       "variantsHint": "模型的扩展 JSON 配置"
     }
+  },
+  "update": {
+    "title": "发现新版本",
+    "description": "当前版本 {{current}}，最新版本 {{latest}}。",
+    "downloadAndInstall": "下载并安装",
+    "later": "稍后",
+    "downloading": "正在下载更新 {{percent}}%",
+    "installing": "正在安装更新，应用将自动重启…",
+    "installFailed": "更新安装失败：{{error}}",
+    "installSuccess": "更新已安装，应用即将重启",
+    "viewReleaseNotes": "查看更新说明",
+    "noUpdate": "当前已是最新版本",
+    "checkFailed": "检查更新失败：{{error}}"
   }
 }

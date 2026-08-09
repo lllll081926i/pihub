@@ -2070,6 +2070,37 @@ pub async fn skills_set_default_view_mode(
     skill_store::set_setting(&state, "default_view_mode", &mode).await
 }
 
+/// Get Skills card grid column preference ("auto" or a digit)
+#[tauri::command]
+pub async fn skills_get_card_columns(state: State<'_, SqliteDbState>) -> Result<String, String> {
+    let raw = skill_store::get_setting(&state, "card_columns")
+        .await
+        .ok()
+        .flatten();
+    Ok(raw.unwrap_or_else(|| "auto".to_string()))
+}
+
+/// Set Skills card grid column preference
+#[tauri::command]
+pub async fn skills_set_card_columns(
+    state: State<'_, SqliteDbState>,
+    columns: String,
+) -> Result<(), String> {
+    let columns = columns.trim().to_string();
+    if columns != "auto"
+        && !columns.parse::<i32>().map(|n| (1..=5).contains(&n)).unwrap_or(false)
+    {
+        return Err("Invalid card columns value".to_string());
+    }
+    // Normalize the stored value ("01" -> "1") so display always matches storage.
+    let columns = if columns == "auto" {
+        columns
+    } else {
+        columns.parse::<i32>().map(|n| n.to_string()).unwrap_or(columns)
+    };
+    skill_store::set_setting(&state, "card_columns", &columns).await
+}
+
 // --- Custom Tools ---
 
 #[tauri::command]

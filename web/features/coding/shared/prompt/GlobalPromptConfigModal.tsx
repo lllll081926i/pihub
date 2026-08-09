@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert, Button, Form, Input, Modal } from 'antd';
 import { useTranslation } from 'react-i18next';
-import MarkdownEditor from '@/components/common/MarkdownEditor';
+import { LazyMarkdownEditor as MarkdownEditor } from '@/components/common/lazyMonaco';
 import type { GlobalPromptConfig } from '@/types/globalPrompt';
 import styles from './GlobalPromptSettings.module.less';
 

@@ -187,6 +187,29 @@ cd tauri && cargo test test_name
 - 如果本轮只改一个非常局部的点，但用户明确要求“全量测试”或“完整验证”，仍然按上面的全量集合执行，而不是自行降级为 smoke test。
 - 新增或修复高价值回归时，应优先补**最贴近用户路径**的自动化用例；不要只补实现细节测试而漏掉“表单提交 -> 持久化 -> 再读取”这类关键往返语义。
 
+### 测试频率策略（减少全量测试次数）
+
+全量测试集合（`pnpm test` + `cargo test` + `tsc`）耗时较长（cargo doctest 约 1 分钟、build 约 2 分钟），应**按需运行，而不是每次改动都跑**：
+
+- **日常小改动**：只跑 `pnpm exec tsc --noEmit` 做类型门，必要时加针对性单测（`node --test <文件>` 或 `cargo test <模块>`），不跑全量。
+- **攒了一波大修改或跨模块改动**：跑一次全量集合（`pnpm test` + `cd tauri && cargo test` + `pnpm exec tsc --noEmit`），有前端构建相关改动再补 `pnpm build`。
+- **有增量可测点**（新增后端命令/纯函数/数据往返）：先跑对应模块/文件的定向测试，验证通过后再并入大波一起全量。
+- 不要为了“每次提交都绿灯”反复跑全量；把全量次数控制在大波提交节点和发布节点。
+
+### 发布前多 Agent 并行审查（必做）
+
+每次准备发版（打 tag / 触发 release workflow）前，必须执行**多 Agent 并行审查 + 全量验证**，全部通过才允许推送：
+
+1. **并行派发至少 3 个 teammate Agent**（`maxNestingDepth: 0`，只读）：
+   - 前端审查 Agent：审查 `web/` 未提交改动（逻辑/竞态/懒加载/动画/i18n/设计系统合规）。
+   - 后端审查 Agent：审查 `tauri/` 未提交改动（panic/并发/异步规则/http_client/SQLite 规则/死代码）。
+   - 验证闸门 Agent：运行 `pnpm exec tsc --noEmit`、`pnpm i18n:check`、`pnpm test`、`cd tauri && cargo test`、`pnpm build` 并逐条报告退出码。
+2. **审查报告按 P0/P1/P2/P3 分级**；P0（数据损坏/崩溃）与 P1（明显 bug）必须修复后才能发版；P2 按风险判断，P3 低风险可随下一波。
+3. 修复后若改动面大，可再跑一轮定向复审；最终以验证闸门 Agent 的全量结果为准。
+4. 发布流程：bump 版本 → 提交 → 推送 → 打 `v*` tag 触发 release workflow → 用 `gh` 更新 release body 写清版本亮点与升级注意事项。
+
+审查派发模板（每次发版复用）：前端审查 focus `web/` 下本次 diff 文件 + DESIGN.md/AGENTS.md 合规；后端审查 focus `tauri/` 下本次 diff 文件 + coding/AGENTS.md 规则；验证闸门跑上面 5 条命令。
+
 ## Code Style Guidelines
 
 ### TypeScript/React

@@ -30,6 +30,7 @@ import {
   ManagementSearchInput,
   ManagementSegmented,
   MANAGEMENT_GRID_COLUMN_OPTIONS,
+  parseManagementGridColumnSetting,
   type ManagementGridColumnSetting,
   type ManagementMenuItem,
 } from '@/features/coding/shared/management';
@@ -111,6 +112,34 @@ const McpPage: React.FC = () => {
   const deferredSearchText = React.useDeferredValue(searchText);
   const previousViewModeRef = React.useRef<'flat' | 'grouped'>('flat');
   const previousAutoExpandRef = React.useRef(false);
+
+  // Restore the persisted card-column preference; keep a ref so the restore
+  // never clobbers a newer user selection while the read is in flight.
+  const gridColumnsRestoredRef = React.useRef(false);
+  React.useEffect(() => {
+    if (gridColumnsRestoredRef.current) {
+      return;
+    }
+    let cancelled = false;
+    void mcpApi.getMcpCardColumns().then((columns) => {
+      if (cancelled) {
+        return;
+      }
+      gridColumnsRestoredRef.current = true;
+      setGridColumnSetting(parseManagementGridColumnSetting(columns));
+    }).catch(() => {
+      gridColumnsRestoredRef.current = true;
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleCardColumnSettingChange = React.useCallback(
+    (next: ManagementGridColumnSetting) => {
+      setGridColumnSetting(next);
+      void mcpApi.setMcpCardColumns(next === 'auto' ? 'auto' : String(next)).catch(() => {});
+    },
+    [],
+  );
 
   const filteredServers = React.useMemo(() => {
     return filterMcpServersBySearch(servers, deferredSearchText, getMcpConfigSummary);
@@ -840,7 +869,7 @@ const McpPage: React.FC = () => {
           open={isSettingsModalOpen}
           cardColumnSetting={gridColumnSetting}
           cardColumnOptions={MANAGEMENT_GRID_COLUMN_OPTIONS}
-          onCardColumnSettingChange={setGridColumnSetting}
+          onCardColumnSettingChange={handleCardColumnSettingChange}
           onClose={() => setSettingsModalOpen(false)}
         />
       )}

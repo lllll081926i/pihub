@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Button,
   Empty,
   Form,
   Input,
@@ -359,6 +360,9 @@ const SessionDetailPage: React.FC<SessionDetailPageProps> = ({ tool }) => {
               <div className={styles.errorState}>
                 <AlertCircle size={24} aria-hidden="true" />
                 <span>{loadError}</span>
+                <Button size="small" onClick={() => setReloadNonce((current) => current + 1)}>
+                  {t('common.retry')}
+                </Button>
               </div>
             ) : detail ? (
               <SessionDetailWorkbench

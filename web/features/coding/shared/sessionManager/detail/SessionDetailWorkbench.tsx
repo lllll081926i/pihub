@@ -26,6 +26,7 @@ import {
   NO_ACTIVE_MATCH_OFFSET,
 } from './domain/messageSearchNavigation';
 import { getMessageTargetId } from './domain/messageTargets';
+import { preloadMarkdownPreview } from '@/components/common/lazyMarkdown';
 import type { SessionSearchScope } from './domain/messageSearch';
 import { enrichSessionMessagesWithToolExecutions } from './domain/toolPairing';
 import SessionDetailCommandBar from './SessionDetailCommandBar';
@@ -56,6 +57,12 @@ interface SessionDetailWorkbenchProps {
 // Survives workbench remount when switching sessions; resets only on app restart.
 let rememberedSessionRoleFilter: SessionRoleFilter = { ...DEFAULT_SESSION_ROLE_FILTER };
 let rememberedSessionContentFilter: SessionContentFilter = { ...DEFAULT_SESSION_CONTENT_FILTER };
+
+// Progressive rendering: long sessions render in batches as the user scrolls
+// instead of mounting every message block up front.
+const INITIAL_RENDER_LIMIT = 60;
+const RENDER_STEP = 40;
+const RENDER_LOOKAHEAD = 40;
 
 const SessionDetailWorkbench: React.FC<SessionDetailWorkbenchProps> = ({
   detail,
@@ -90,11 +97,20 @@ const SessionDetailWorkbench: React.FC<SessionDetailWorkbenchProps> = ({
     canScrollUp: false,
     canScrollDown: false,
   });
+  const [renderLimit, setRenderLimit] = React.useState(INITIAL_RENDER_LIMIT);
   const messageRefs = React.useRef<Map<number, HTMLElement>>(new Map());
   const targetRefs = React.useRef<Map<string, HTMLElement>>(new Map());
+  const searchInputRef = React.useRef<import('antd').InputRef | null>(null);
+  const scrollRetryTimeoutRef = React.useRef<number | null>(null);
   const viewerRef = React.useRef<HTMLDivElement | null>(null);
   const scrollControlsFrameRef = React.useRef<number | null>(null);
   const assistantLabel = getAssistantLabel(detail.meta.providerId);
+
+  // Warm the markdown chunk while the workbench mounts so the first markdown
+  // message renders without a Suspense hitch.
+  React.useEffect(() => {
+    preloadMarkdownPreview();
+  }, []);
 
   React.useEffect(() => {
     // Keep role/content filter chips across sessions; only reset session-local UI state.
@@ -110,6 +126,10 @@ const SessionDetailWorkbench: React.FC<SessionDetailWorkbenchProps> = ({
   React.useEffect(() => () => {
     messageRefs.current.clear();
     targetRefs.current.clear();
+    if (scrollRetryTimeoutRef.current !== null) {
+      window.clearTimeout(scrollRetryTimeoutRef.current);
+      scrollRetryTimeoutRef.current = null;
+    }
   }, []);
 
   const visibleMessages = React.useMemo(() => {
@@ -132,6 +152,7 @@ const SessionDetailWorkbench: React.FC<SessionDetailWorkbenchProps> = ({
   }), [contentFilter, deferredQuery, displayMessages, roleFilter, searchScope]);
 
   const rows = React.useMemo(() => flattenMessagesWithDateDividers(filteredItems), [filteredItems]);
+  const renderRows = React.useMemo(() => rows.slice(0, renderLimit), [renderLimit, rows]);
   const navigatorEntries = React.useMemo(
     () => buildNavigatorEntriesFromItems(filteredItems, deferredQuery, searchScope),
     [deferredQuery, filteredItems, searchScope],
@@ -148,6 +169,17 @@ const SessionDetailWorkbench: React.FC<SessionDetailWorkbenchProps> = ({
     setActiveMatchOffset(NO_ACTIVE_MATCH_OFFSET);
     setActiveMessageIndex(null);
   }, [query, roleFilter, contentFilter, searchScope]);
+
+  // Reset progressive rendering whenever the visible set changes (session switch,
+  // search/filter changes). After a filter is active the row count is usually
+  // small, so render everything immediately.
+  React.useEffect(() => {
+    setRenderLimit(rows.length <= INITIAL_RENDER_LIMIT ? rows.length : INITIAL_RENDER_LIMIT);
+  }, [contentFilter, detail.meta.sourcePath, query, roleFilter, rows.length, searchScope]);
+
+  const handleReachEnd = React.useCallback(() => {
+    setRenderLimit((current) => Math.min(rows.length, Math.max(current, INITIAL_RENDER_LIMIT) + RENDER_STEP));
+  }, [rows.length]);
 
   const toggleRoleFilter = React.useCallback((key: SessionRoleFilterKey) => {
     setRoleFilter((current) => {
@@ -233,39 +265,39 @@ const SessionDetailWorkbench: React.FC<SessionDetailWorkbenchProps> = ({
         scrollControlsFrameRef.current = null;
       }
     };
-  }, [navigatorCollapsed, rows.length, scheduleScrollControlsUpdate, updateScrollControls]);
+  }, [navigatorCollapsed, renderRows.length, scheduleScrollControlsUpdate, updateScrollControls]);
 
   const scrollToTarget = React.useCallback((targetId: string, index: number) => {
     const node = targetRefs.current.get(targetId) ?? messageRefs.current.get(index);
     const viewer = viewerRef.current;
-    if (!node) {
-      return;
-    }
     setActiveMessageIndex(index);
     setNavigatorDrawerOpen(false);
+
+    if (!node) {
+      // The target row is outside the progressive-render window. Render far
+      // enough to include it, then retry once so search navigation works
+      // regardless of how deep the match sits in a long session. Cancel any
+      // pending retry so rapid F3 navigation cannot stack stale timeouts.
+      if (scrollRetryTimeoutRef.current !== null) {
+        window.clearTimeout(scrollRetryTimeoutRef.current);
+      }
+      setRenderLimit((current) => Math.max(current, index + RENDER_LOOKAHEAD + 1));
+      scrollRetryTimeoutRef.current = window.setTimeout(() => {
+        scrollRetryTimeoutRef.current = null;
+        const retryNode = targetRefs.current.get(targetId) ?? messageRefs.current.get(index);
+        if (retryNode && viewerRef.current) {
+          alignTargetInViewer(retryNode, viewerRef.current, scheduleScrollControlsUpdate);
+        }
+      }, 120);
+      return;
+    }
 
     if (!viewer) {
       node.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
-    const alignMessageInViewer = (behavior: ScrollBehavior) => {
-      const viewerRect = viewer.getBoundingClientRect();
-      const nodeRect = node.getBoundingClientRect();
-      const nodeTopInViewer = nodeRect.top - viewerRect.top + viewer.scrollTop;
-      const centeredTop = nodeTopInViewer - Math.max(0, (viewer.clientHeight - nodeRect.height) / 2);
-      const maxScrollTop = Math.max(0, viewer.scrollHeight - viewer.clientHeight);
-      viewer.scrollTo({
-        top: Math.min(maxScrollTop, Math.max(0, centeredTop)),
-        behavior,
-      });
-    };
-
-    alignMessageInViewer('smooth');
-    window.requestAnimationFrame(() => {
-      alignMessageInViewer('auto');
-      scheduleScrollControlsUpdate();
-    });
+    alignTargetInViewer(node, viewer, scheduleScrollControlsUpdate);
   }, [scheduleScrollControlsUpdate]);
 
   const scrollToMessage = React.useCallback((index: number) => {
@@ -326,6 +358,30 @@ const SessionDetailWorkbench: React.FC<SessionDetailWorkbenchProps> = ({
   };
   const showScrollControls = scrollControls.canScrollUp || scrollControls.canScrollDown;
 
+  // Keyboard shortcuts: Cmd/Ctrl+F focuses the search box; F3 / Shift+F3 step
+  // through matches (Enter inside the search box does the same).
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const withModifier = event.metaKey || event.ctrlKey;
+      if (withModifier && (event.key === 'f' || event.key === 'F')) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+      if (event.key === 'F3') {
+        event.preventDefault();
+        if (event.shiftKey) {
+          handlePreviousMatch();
+        } else {
+          handleNextMatch();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleNextMatch, handlePreviousMatch]);
+
   return (
     <div className={`${styles.workbench}${navigatorCollapsed ? ` ${styles.workbenchNavigatorCollapsed}` : ''}`}>
       <SessionDetailCommandBar
@@ -350,6 +406,7 @@ const SessionDetailWorkbench: React.FC<SessionDetailWorkbenchProps> = ({
         onContentFilterToggle={toggleContentFilter}
         onSearchScopeChange={setSearchScope}
         onPreviousMatch={handlePreviousMatch}
+        searchInputRef={searchInputRef}
         onNextMatch={handleNextMatch}
         onRename={onRename}
         onExport={onExport}
@@ -374,7 +431,7 @@ const SessionDetailWorkbench: React.FC<SessionDetailWorkbenchProps> = ({
       <main className={styles.workbenchMain}>
         <div className={styles.messageViewerShell}>
           <SessionMessageViewer
-            rows={rows}
+            rows={renderRows}
             activeMessageIndex={activeMessageIndex}
             query={deferredQuery}
             contentFilter={contentFilter}
@@ -383,6 +440,7 @@ const SessionDetailWorkbench: React.FC<SessionDetailWorkbenchProps> = ({
             viewerRef={viewerRef}
             onCopyText={onCopyText}
             onContentLayoutChange={scheduleScrollControlsUpdate}
+            onReachEnd={handleReachEnd}
             setMessageRef={setMessageRef}
             setTargetRef={setTargetRef}
           />
@@ -453,6 +511,31 @@ const SessionDetailWorkbench: React.FC<SessionDetailWorkbenchProps> = ({
 
 function getAssistantLabel(providerId: SessionDetail['meta']['providerId']): string {
   return providerId === 'pi' ? 'Pi' : 'Assistant';
+}
+
+/** Center `node` inside the scrollable `viewer` (smooth, then snapped). */
+function alignTargetInViewer(
+  node: HTMLElement,
+  viewer: HTMLElement,
+  scheduleScrollControlsUpdate: () => void,
+) {
+  const alignMessageInViewer = (behavior: ScrollBehavior) => {
+    const viewerRect = viewer.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    const nodeTopInViewer = nodeRect.top - viewerRect.top + viewer.scrollTop;
+    const centeredTop = nodeTopInViewer - Math.max(0, (viewer.clientHeight - nodeRect.height) / 2);
+    const maxScrollTop = Math.max(0, viewer.scrollHeight - viewer.clientHeight);
+    viewer.scrollTo({
+      top: Math.min(maxScrollTop, Math.max(0, centeredTop)),
+      behavior,
+    });
+  };
+
+  alignMessageInViewer('smooth');
+  window.requestAnimationFrame(() => {
+    alignMessageInViewer('auto');
+    scheduleScrollControlsUpdate();
+  });
 }
 
 export default SessionDetailWorkbench;

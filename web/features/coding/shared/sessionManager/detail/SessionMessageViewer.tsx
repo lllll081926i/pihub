@@ -18,9 +18,13 @@ interface SessionMessageViewerProps {
   viewerRef: React.RefObject<HTMLDivElement | null>;
   onCopyText: (text: string, successText: string) => void | Promise<void>;
   onContentLayoutChange: () => void;
+  onReachEnd?: () => void;
   setMessageRef: (index: number, node: HTMLElement | null) => void;
   setTargetRef: (targetId: string, node: HTMLElement | null) => void;
 }
+
+/** Rows below this distance (px) from the viewport bottom trigger a render batch. */
+const REACH_END_THRESHOLD = 600;
 
 const SessionMessageViewer: React.FC<SessionMessageViewerProps> = ({
   rows,
@@ -32,9 +36,31 @@ const SessionMessageViewer: React.FC<SessionMessageViewerProps> = ({
   viewerRef,
   onCopyText,
   onContentLayoutChange,
+  onReachEnd,
   setMessageRef,
   setTargetRef,
 }) => {
+  const reachEndFrameRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => () => {
+    if (reachEndFrameRef.current !== null) {
+      window.cancelAnimationFrame(reachEndFrameRef.current);
+    }
+  }, []);
+
+  const handleScroll = React.useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const node = event.currentTarget;
+    const distanceToBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+    if (distanceToBottom <= REACH_END_THRESHOLD) {
+      if (reachEndFrameRef.current === null) {
+        reachEndFrameRef.current = window.requestAnimationFrame(() => {
+          reachEndFrameRef.current = null;
+          onReachEnd?.();
+        });
+      }
+    }
+  }, [onReachEnd]);
+
   if (rows.length === 0) {
     return (
       <div className={styles.viewerEmpty}>
@@ -49,6 +75,7 @@ const SessionMessageViewer: React.FC<SessionMessageViewerProps> = ({
       className={styles.messageViewer}
       onClickCapture={onContentLayoutChange}
       onKeyUpCapture={onContentLayoutChange}
+      onScroll={handleScroll}
     >
       {rows.map((row) => {
         if (row.type === 'date') {

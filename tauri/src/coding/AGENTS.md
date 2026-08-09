@@ -39,7 +39,7 @@ sequenceDiagram
 
 ## 易错点与历史坑（Gotchas）
 
-- 通用配置「从当前文件提取」以及 DB 为空时的磁盘 common 回退，都会直接读 WSL UNC / 网络根目录下的 runtime 文件。`Path::exists` / `fs::read_to_string` 在不可达路径上可能长时间阻塞；这些路径必须用 `coding::file_io` 做 `spawn_blocking` + 超时读，前端 extract 也要有兜底超时（`web/utils/withTimeout.ts`）。`tokio::time::timeout` 只保证 await 返回，不会取消已卡住的 OS 读；超时后 blocking 线程仍可能短暂占用，应避免在不可达路径上连续重试打满线程池。
+- 通用配置「从当前文件提取」以及 DB 为空时的磁盘 common 回退，都会直接读 WSL UNC / 网络根目录下的 runtime 文件。`Path::exists` / `fs::read_to_string` 在不可达路径上可能长时间阻塞；这些路径必须用 `coding::file_io`（`tauri/src/coding/file_io.rs`）的 `path_exists_async` / `read_to_string_async` / `read_json_object_or_empty_async` / `write_json_object_async` 做 `spawn_blocking` + 超时读，Pi runtime 配置读（settings/auth/models）与 root-dir 布局探测（`normalize_pi_root_dir_async`）已接入。`tokio::time::timeout` 只保证 await 返回，不会取消已卡住的 OS 读；`file_io` 内部用有界信号量限制并发阻塞读，避免超时后 blocking 线程堆积打满线程池。新增对 WSL UNC 路径的阻塞式文件操作时，复用 `file_io`，不要直接写裸 `fs::` 调用。
 - 不要把“页面上显示的 `source`”和“WSL/SSH 设置页里的 `moduleStatuses.is_wsl_direct`”混为一谈。前者是路径来源标签，后者是对当前生效运行时路径的统一诊断结果。
 - 改 `root_dir` / `config_path` 保存逻辑时，保存 DB 后要先刷新对应 runtime location cache，再继续 apply 配置文件、比较 Skills 目标路径、发相关同步事件。否则后续同步 helper 可能继续消费旧路径。
 - 对用户自行安装的 CLI，不要默认 GUI 进程里 `PATH` 可用。尤其 macOS 从 Dock/Finder 启动时，新增调用应优先解析已知安装位置或显式配置路径，再回退到 `PATH`。

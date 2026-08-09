@@ -17,6 +17,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { getTokenStats, refreshTokenStats, type TokenStatsResult } from '@/services/tokenStatsApi';
+import { useCountUp } from '@/hooks/useCountUp';
 import styles from './TokenStatsPage.module.less';
 
 const { Title, Text } = Typography;
@@ -41,41 +42,58 @@ interface KpiItemProps {
   icon: React.ReactNode;
   label: string;
   value: string;
+  /** Numeric value; when provided the displayed number counts up on mount/change. */
+  count?: number;
+  /** Formatter for the animated count (defaults to `formatNumber`). */
+  formatter?: (value: number) => string;
   hint?: string;
   accent?: string;
 }
 
-const KpiItem: React.FC<KpiItemProps> = ({ icon, label, value, hint, accent }) => (
-  <div className={styles.kpiItem}>
-    <span className={styles.kpiIcon} style={{ color: accent }}>{icon}</span>
-    <div className={styles.kpiBody}>
-      <Text className={styles.kpiLabel}>{label}</Text>
-      <Text className={styles.kpiValue}>{value}</Text>
-      {hint && <Text className={styles.kpiHint}>{hint}</Text>}
+const KpiItem: React.FC<KpiItemProps> = ({ icon, label, value, count, formatter, hint, accent }) => {
+  const animatedCount = useCountUp(count ?? 0, 550);
+  const displayValue = count !== undefined ? (formatter ?? formatNumber)(animatedCount) : value;
+  return (
+    <div className={styles.kpiItem}>
+      <span className={styles.kpiIcon} style={{ color: accent }}>{icon}</span>
+      <div className={styles.kpiBody}>
+        <Text className={styles.kpiLabel}>{label}</Text>
+        <Text className={styles.kpiValue}>{displayValue}</Text>
+        {hint && <Text className={styles.kpiHint}>{hint}</Text>}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 interface SubKpiItemProps {
   icon: React.ReactNode;
   label: string;
   value: string;
+  /** Numeric value; when provided the displayed number counts up on mount/change. */
+  count?: number;
+  /** Formatter for the animated count (defaults to `formatNumber`). */
+  formatter?: (value: number) => string;
   hint?: string;
   accent?: string;
 }
 
-const SubKpiItem: React.FC<SubKpiItemProps> = ({ icon, label, value, hint, accent }) => (
-  <div className={styles.subKpiItem}>
-    <span className={styles.subKpiIcon} style={{ color: accent }}>{icon}</span>
-    <div className={styles.subKpiBody}>
-      <Text className={styles.subKpiLabel}>{label}</Text>
-      <Text className={styles.subKpiValue}>{value}</Text>
-      {hint && <Text className={styles.subKpiHint}>{hint}</Text>}
+const SubKpiItem: React.FC<SubKpiItemProps> = ({ icon, label, value, count, formatter, hint, accent }) => {
+  const animatedCount = useCountUp(count ?? 0, 550);
+  const displayValue = count !== undefined ? (formatter ?? formatNumber)(animatedCount) : value;
+  return (
+    <div className={styles.subKpiItem}>
+      <span className={styles.subKpiIcon} style={{ color: accent }}>{icon}</span>
+      <div className={styles.subKpiBody}>
+        <Text className={styles.subKpiLabel}>{label}</Text>
+        <Text className={styles.subKpiValue}>{displayValue}</Text>
+        {hint && <Text className={styles.subKpiHint}>{hint}</Text>}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 type DetailTab = 'models' | 'heatmap' | 'daily';
+type DetailRange = '7' | '30' | '90' | 'all';
 
 const TokenStatsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -83,6 +101,7 @@ const TokenStatsPage: React.FC = () => {
   const [loading, setLoading] = React.useState(!TOKEN_STATS_CACHE);
   const [refreshing, setRefreshing] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<DetailTab>('models');
+  const [detailRange, setDetailRange] = React.useState<DetailRange>('30');
 
   React.useEffect(() => {
     let cancelled = false;
@@ -137,6 +156,23 @@ const TokenStatsPage: React.FC = () => {
     { label: t('tokenStats.dailyBreakdown'), value: 'daily', icon: <TableOutlined /> },
   ];
 
+  // Detail views (heatmap/daily) honor the selected time range; KPI cards and
+  // the model ranking stay as the all-time overview because the backend only
+  // aggregates per-model totals globally.
+  const visibleDays = React.useMemo(() => {
+    if (!data?.days.length || detailRange === 'all') {
+      return data?.days ?? [];
+    }
+    return data.days.slice(-Number(detailRange));
+  }, [data, detailRange]);
+
+  const rangeOptions = [
+    { label: t('tokenStats.range7'), value: '7' },
+    { label: t('tokenStats.range30'), value: '30' },
+    { label: t('tokenStats.range90'), value: '90' },
+    { label: t('tokenStats.rangeAll'), value: 'all' },
+  ];
+
   const renderModelsTab = () => {
     if (sortedModels.length === 0) {
       return <EmptyState title={t('tokenStats.empty')} compact />;
@@ -185,7 +221,7 @@ const TokenStatsPage: React.FC = () => {
     return (
       <>
         <div className={styles.heatmapGrid}>
-          {data.days.slice(-21).map((day) => {
+          {visibleDays.slice(-21).map((day) => {
             const dayTokens = day.inputTokens + day.outputTokens + day.cacheWriteTokens + day.cacheReadTokens;
             const intensity = dayTokens / maxDayTokens;
             const alpha = 0.12 + intensity * 0.88;
@@ -200,14 +236,14 @@ const TokenStatsPage: React.FC = () => {
           })}
         </div>
         <div className={styles.heatmapLegend}>
-          <Text className={styles.legendText}>{t('tokenStats.recentDays', { count: data.days.slice(-21).length })}</Text>
+          <Text className={styles.legendText}>{t('tokenStats.recentDays', { count: visibleDays.slice(-21).length })}</Text>
         </div>
       </>
     );
   };
 
   const renderDailyTab = () => {
-    if (!data || data.days.length === 0) {
+    if (!data || visibleDays.length === 0) {
       return <EmptyState title={t('tokenStats.empty')} compact />;
     }
     return (
@@ -220,7 +256,7 @@ const TokenStatsPage: React.FC = () => {
           <span>{t('tokenStats.cost')}</span>
           <span>{t('tokenStats.messages')}</span>
         </div>
-        {[...data.days].reverse().slice(0, 60).map((day) => {
+        {[...visibleDays].reverse().slice(0, 60).map((day) => {
           const dayTokens = day.inputTokens + day.outputTokens + day.cacheWriteTokens + day.cacheReadTokens;
           const ratio = dayTokens / maxDayTokens;
           return (
@@ -268,18 +304,22 @@ const TokenStatsPage: React.FC = () => {
                 icon={<PieChartOutlined />}
                 label={t('tokenStats.totalTokens')}
                 value={formatNumber(totalTokens)}
+                count={totalTokens}
                 accent="var(--ant-color-primary)"
               />
               <KpiItem
                 icon={<RiseOutlined />}
                 label={t('tokenStats.totalCost')}
                 value={formatCost(data.totalCostUsd)}
+                count={data.totalCostUsd}
+                formatter={formatCost}
                 accent="var(--ant-color-success)"
               />
               <KpiItem
                 icon={<FireOutlined />}
                 label={t('tokenStats.totalOutput')}
                 value={formatNumber(data.totalOutputTokens)}
+                count={data.totalOutputTokens}
                 hint={t('tokenStats.inputHint', { count: data.totalInputTokens })}
                 accent="var(--ant-color-warning)"
               />
@@ -287,6 +327,7 @@ const TokenStatsPage: React.FC = () => {
                 icon={<MessageOutlined />}
                 label={t('tokenStats.sessions')}
                 value={String(data.sessionCount)}
+                count={data.sessionCount}
                 hint={t('tokenStats.messagesHint', { count: data.totalMessages })}
                 accent="var(--ant-color-info)"
               />
@@ -297,6 +338,7 @@ const TokenStatsPage: React.FC = () => {
                 icon={<BarChartOutlined />}
                 label={t('tokenStats.avgPerSession')}
                 value={formatNumber(data.avgTokensPerSession)}
+                count={data.avgTokensPerSession}
                 hint={formatCost(data.avgCostPerSession)}
                 accent="var(--ant-color-primary)"
               />
@@ -311,6 +353,7 @@ const TokenStatsPage: React.FC = () => {
                 icon={<DollarOutlined />}
                 label={t('tokenStats.cacheWriteLabel')}
                 value={formatNumber(data.totalCacheWriteTokens)}
+                count={data.totalCacheWriteTokens}
                 hint={`${t('tokenStats.cacheReadLabel')}: ${formatNumber(data.totalCacheReadTokens)}`}
                 accent="var(--ant-color-warning)"
               />
@@ -324,6 +367,12 @@ const TokenStatsPage: React.FC = () => {
                 options={tabOptions}
                 value={activeTab}
                 onChange={(value) => setActiveTab(value as DetailTab)}
+              />
+              <Segmented
+                className={styles.rangeSegmented}
+                options={rangeOptions}
+                value={detailRange}
+                onChange={(value) => setDetailRange(value as DetailRange)}
               />
             </div>
             <div className={styles.detailContent}>

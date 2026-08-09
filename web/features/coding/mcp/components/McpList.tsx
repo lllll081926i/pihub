@@ -112,13 +112,14 @@ export const McpList: React.FC<McpListProps> = ({
         '--management-grid-columns': `repeat(${columns}, minmax(0, 1fr))`,
       } as React.CSSProperties)}
     >
-      {servers.map((server) => (
+      {servers.map((server, index) => (
         <McpCard
           key={server.id}
           server={server}
           tools={tools}
           loading={loading}
           dragDisabled={false}
+          enterDelay={Math.min(index * 24, 240)}
           resolvedPackageVersions={resolvedPackageVersions}
           onEdit={onEdit}
           onEditMetadata={onEditMetadata}

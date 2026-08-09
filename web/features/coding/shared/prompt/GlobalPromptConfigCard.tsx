@@ -13,7 +13,7 @@ import type { MenuProps } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import MarkdownPreview from '@/components/common/MarkdownPreview';
+import { LazyMarkdownPreview as MarkdownPreview, preloadMarkdownPreview } from '@/components/common/lazyMarkdown';
 import AppliedTag from '@/components/common/AppliedTag';
 import type { GlobalPromptConfig } from '@/types/globalPrompt';
 import styles from './GlobalPromptSettings.module.less';
@@ -39,6 +39,11 @@ const GlobalPromptConfigCard: React.FC<GlobalPromptConfigCardProps> = ({
   const { token } = theme.useToken();
   const [expanded, setExpanded] = React.useState(false);
   const isLocalConfig = config.id === '__local__';
+
+  // Warm the markdown chunk once the card mounts (preview section uses it).
+  React.useEffect(() => {
+    preloadMarkdownPreview();
+  }, []);
   // `__local__` is only a local-file bridge, not a managed applied preset.
   const showAsApplied = config.isApplied && !isLocalConfig;
   const {

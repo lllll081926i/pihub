@@ -57,6 +57,7 @@ interface SessionDetailCommandBarProps {
   onDelete: () => void;
   onBackToParent: () => void;
   onShowNavigator: () => void;
+  searchInputRef?: React.Ref<import('antd').InputRef>;
 }
 
 const roleOptions: Array<{ value: SessionRoleFilterKey; labelKey: string }> = [
@@ -100,6 +101,7 @@ const SessionDetailCommandBar: React.FC<SessionDetailCommandBarProps> = ({
   onDelete,
   onBackToParent,
   onShowNavigator,
+  searchInputRef,
 }) => (
   <header className={styles.commandBar}>
     {isSubagentDetail ? (
@@ -135,11 +137,22 @@ const SessionDetailCommandBar: React.FC<SessionDetailCommandBarProps> = ({
       <div className={styles.detailSearchGroup}>
         <Input
           allowClear
+          ref={searchInputRef}
           className={styles.detailSearchInput}
           prefix={<Search size={15} />}
           placeholder={t('sessionManager.searchInDetail')}
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              if (event.shiftKey) {
+                onPreviousMatch();
+              } else {
+                onNextMatch();
+              }
+            }
+          }}
         />
         <span className={styles.matchCounter}>
           {matchCount > 0 ? `${activeMatchPosition}/${matchCount}` : '0/0'}
