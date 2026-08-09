@@ -256,6 +256,10 @@ pub struct PiExtensionListResult {
     /// Best-effort `pi --version` stdout for the resolved CLI; omitted when probing fails.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cli_version: Option<String>,
+    /// True when this payload was served from the persisted extension-list
+    /// cache (used by the UI to decide whether a silent refresh is needed).
+    #[serde(default)]
+    pub from_cache: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -39,33 +39,112 @@ pub struct FetchProviderModelsResponse {
     pub total: usize,
 }
 
+/// Split a URL into its path (trailing slashes trimmed) and optional query string.
+fn split_base_url(base_url: &str) -> (String, String) {
+    match base_url.split_once('?') {
+        Some((path, query)) => (path.trim_end_matches('/').to_string(), query.to_string()),
+        None => (base_url.trim_end_matches('/').to_string(), String::new()),
+    }
+}
+
+fn join_path_query(path: &str, query: &str) -> String {
+    if query.is_empty() {
+        path.to_string()
+    } else {
+        format!("{path}?{query}")
+    }
+}
+
+/// Does the path already carry a version segment like `/v1`, `/v1beta`,
+/// `/api/v1` or `/v1.5` (case-insensitive, matching the frontend
+/// `normalizeProviderBaseUrl` guard)?
+fn path_has_version_segment(path: &str) -> bool {
+    static VERSION_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let re = VERSION_RE.get_or_init(|| {
+        regex::Regex::new(r"(?i)(?:^|/)v\d+(?:\.\d+)?(?:beta)?$")
+            .expect("static version-segment regex is valid")
+    });
+    re.is_match(path)
+}
+
+/// Build the final model-list endpoint from a provider base URL.
+///
+/// Idempotent: a base that already carries the `/models` path (or the
+/// provider-specific version segment) is used as-is instead of appending a
+/// duplicate suffix. A query string, when present, is always re-appended
+/// after the path suffix so it never lands in the middle of the URL.
+fn build_models_endpoint(
+    base_url: &str,
+    api_type: &str,
+    sdk_type: Option<&str>,
+    api_key: &str,
+) -> String {
+    let (path, query) = split_base_url(base_url);
+    let path_has_models = path.ends_with("/models");
+    let path_has_version = path_has_version_segment(&path);
+    let url = match (api_type, sdk_type) {
+        ("native", Some("@ai-sdk/google")) => {
+            // Google Generative Language: models.list
+            let models_path = if path_has_models {
+                path
+            } else if path_has_version {
+                format!("{path}/models")
+            } else {
+                format!("{path}/v1beta/models")
+            };
+            let url = join_path_query(&models_path, &query);
+            if api_key.is_empty() {
+                url
+            } else if url.contains('?') {
+                format!("{url}&key={api_key}")
+            } else {
+                format!("{url}?key={api_key}")
+            }
+        }
+        ("native", Some("@ai-sdk/anthropic")) => {
+            // Anthropic: /v1/models with x-api-key + anthropic-version headers
+            let models_path = if path.ends_with("/v1/models") {
+                path
+            } else if path.ends_with("/v1") || path_has_version {
+                format!("{path}/models")
+            } else {
+                format!("{path}/v1/models")
+            };
+            join_path_query(&models_path, &query)
+        }
+        _ => {
+            // OpenAI-compatible: /models
+            if path_has_models {
+                join_path_query(&path, &query)
+            } else {
+                join_path_query(&format!("{path}/models"), &query)
+            }
+        }
+    };
+    url
+}
+
 /// Fetch the provider's model list.
 #[tauri::command]
 pub async fn fetch_provider_models(
     state: tauri::State<'_, SqliteDbState>,
     request: FetchProviderModelsRequest,
 ) -> Result<FetchProviderModelsResponse, String> {
-    let base_url = request
+    // A non-empty custom_url is the final endpoint (the frontend already
+    // appends the provider-specific path/query); treat it as-is instead of
+    // re-appending a suffix on top of it.
+    let endpoint = match request
         .custom_url
         .as_deref()
         .filter(|url| !url.trim().is_empty())
-        .map(str::to_string)
-        .unwrap_or_else(|| request.base_url.clone());
-
-    let endpoint = match request.api_type.as_str() {
-        "native" if request.sdk_type.as_deref() == Some("@ai-sdk/google") => {
-            // Google Generative Language: models.list
-            format!(
-                "{}/v1beta/models?key={}",
-                base_url.trim_end_matches('/'),
-                request.api_key.clone().unwrap_or_default()
-            )
-        }
-        "native" if request.sdk_type.as_deref() == Some("@ai-sdk/anthropic") => {
-            // Anthropic: /v1/models with x-api-key + anthropic-version headers
-            format!("{}/v1/models", base_url.trim_end_matches('/'))
-        }
-        _ => format!("{}/models", base_url.trim_end_matches('/')),
+    {
+        Some(custom) => custom.trim().to_string(),
+        None => build_models_endpoint(
+            &request.base_url,
+            &request.api_type,
+            request.sdk_type.as_deref(),
+            request.api_key.as_deref().unwrap_or(""),
+        ),
     };
 
     let client = http_client::client_with_timeout(state.inner(), 30).await?;
@@ -288,5 +367,169 @@ mod tests {
     #[test]
     fn anthropic_defaults_are_nonempty() {
         assert!(!anthropic_default_models().is_empty());
+    }
+
+    #[test]
+    fn build_models_endpoint_openai_compat() {
+        // Plain base gets /models appended
+        assert_eq!(
+            build_models_endpoint("https://host", "openai_compat", None, ""),
+            "https://host/models"
+        );
+        // Base already carrying /v1 gets only /models appended
+        assert_eq!(
+            build_models_endpoint("https://host/v1", "openai_compat", None, ""),
+            "https://host/v1/models"
+        );
+        // Full /models endpoint must not be duplicated
+        assert_eq!(
+            build_models_endpoint("https://host/v1/models", "openai_compat", None, ""),
+            "https://host/v1/models"
+        );
+        assert_eq!(
+            build_models_endpoint("https://host/v1/models/", "openai_compat", None, ""),
+            "https://host/v1/models"
+        );
+    }
+
+    #[test]
+    fn build_models_endpoint_anthropic_native() {
+        assert_eq!(
+            build_models_endpoint("https://api.anthropic.com", "native", Some("@ai-sdk/anthropic"), ""),
+            "https://api.anthropic.com/v1/models"
+        );
+        assert_eq!(
+            build_models_endpoint("https://api.anthropic.com/v1", "native", Some("@ai-sdk/anthropic"), ""),
+            "https://api.anthropic.com/v1/models"
+        );
+        assert_eq!(
+            build_models_endpoint("https://api.anthropic.com/v1/models", "native", Some("@ai-sdk/anthropic"), ""),
+            "https://api.anthropic.com/v1/models"
+        );
+        // /models without /v1 is not an Anthropic endpoint, so /v1/models wins
+        assert_eq!(
+            build_models_endpoint("https://api.anthropic.com/models", "native", Some("@ai-sdk/anthropic"), ""),
+            "https://api.anthropic.com/models/v1/models"
+        );
+    }
+
+    #[test]
+    fn build_models_endpoint_google_native() {
+        assert_eq!(
+            build_models_endpoint(
+                "https://generativelanguage.googleapis.com",
+                "native",
+                Some("@ai-sdk/google"),
+                "abc"
+            ),
+            "https://generativelanguage.googleapis.com/v1beta/models?key=abc"
+        );
+        // Existing /models path must not be duplicated
+        assert_eq!(
+            build_models_endpoint(
+                "https://generativelanguage.googleapis.com/v1beta/models",
+                "native",
+                Some("@ai-sdk/google"),
+                "abc"
+            ),
+            "https://generativelanguage.googleapis.com/v1beta/models?key=abc"
+        );
+        // Base with an existing query keeps key appended with &
+        assert_eq!(
+            build_models_endpoint(
+                "https://host/v1beta/models?alt=json",
+                "native",
+                Some("@ai-sdk/google"),
+                "abc"
+            ),
+            "https://host/v1beta/models?alt=json&key=abc"
+        );
+        // No key -> no query parameter
+        assert_eq!(
+            build_models_endpoint("https://host", "native", Some("@ai-sdk/google"), ""),
+            "https://host/v1beta/models"
+        );
+        // Base already carrying a version segment must not duplicate it
+        assert_eq!(
+            build_models_endpoint(
+                "https://host/v1beta",
+                "native",
+                Some("@ai-sdk/google"),
+                ""
+            ),
+            "https://host/v1beta/models"
+        );
+        assert_eq!(
+            build_models_endpoint(
+                "https://host/v1",
+                "native",
+                Some("@ai-sdk/google"),
+                ""
+            ),
+            "https://host/v1/models"
+        );
+        // Case-insensitive version segment
+        assert_eq!(
+            build_models_endpoint(
+                "https://host/V1BETA",
+                "native",
+                Some("@ai-sdk/google"),
+                ""
+            ),
+            "https://host/V1BETA/models"
+        );
+        // Query on an appending base lands after the path suffix
+        assert_eq!(
+            build_models_endpoint(
+                "https://host/v1?alt=json",
+                "native",
+                Some("@ai-sdk/google"),
+                "abc"
+            ),
+            "https://host/v1/models?alt=json&key=abc"
+        );
+        assert_eq!(
+            build_models_endpoint(
+                "https://host?alt=json",
+                "native",
+                Some("@ai-sdk/google"),
+                "abc"
+            ),
+            "https://host/v1beta/models?alt=json&key=abc"
+        );
+    }
+
+    #[test]
+    fn build_models_endpoint_openai_compat_query_kept_after_path() {
+        assert_eq!(
+            build_models_endpoint("https://host/v1?alt=json", "openai_compat", None, ""),
+            "https://host/v1/models?alt=json"
+        );
+        assert_eq!(
+            build_models_endpoint("https://host?alt=json", "openai_compat", None, ""),
+            "https://host/models?alt=json"
+        );
+    }
+
+    #[test]
+    fn build_models_endpoint_anthropic_query_kept_after_path() {
+        assert_eq!(
+            build_models_endpoint(
+                "https://api.anthropic.com/v1?alt=json",
+                "native",
+                Some("@ai-sdk/anthropic"),
+                ""
+            ),
+            "https://api.anthropic.com/v1/models?alt=json"
+        );
+        assert_eq!(
+            build_models_endpoint(
+                "https://api.anthropic.com?alt=json",
+                "native",
+                Some("@ai-sdk/anthropic"),
+                ""
+            ),
+            "https://api.anthropic.com/v1/models?alt=json"
+        );
     }
 }

@@ -843,11 +843,6 @@
       "configField": "MCP Field Name",
       "configFieldRequired": "Please enter MCP field name"
     },
-    "adapterMissing": "MCP Adapter not installed",
-    "adapterMissingHint": "Pi requires the pi-mcp-adapter extension to consume MCP configs. Install it first, then you can add and manage MCP servers.",
-    "adapterInstall": "Install adapter",
-    "adapterInstallSuccess": "MCP Adapter installed",
-    "adapterInstallFailed": "Failed to install MCP Adapter",
     "timeoutPiLabel": "Pi connection timeout (ms)"
   },
   "pi": {

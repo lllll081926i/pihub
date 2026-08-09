@@ -136,12 +136,3 @@ export const deleteMcpFavorite = async (favoriteId: string): Promise<void> => {
 export const initMcpDefaultFavorites = async (): Promise<number> => {
   return invoke<number>('mcp_init_default_favorites');
 };
-
-// pi-mcp-adapter 检测与安装
-export const checkMcpAdapterInstalled = async (): Promise<boolean> => {
-  return invoke<boolean>('check_mcp_adapter_installed');
-};
-
-export const installMcpAdapter = async (): Promise<string> => {
-  return invoke<string>('install_mcp_adapter');
-};

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Alert, Button, Modal, message } from 'antd';
+import { Modal, message } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import {
   ChevronsDown,
@@ -108,39 +108,9 @@ const McpPage: React.FC = () => {
   const [groupToolMode, setGroupToolMode] = useState(false);
   const [gridColumnSetting, setGridColumnSetting] = useState<ManagementGridColumnSetting>('auto');
   const [resolvedPackageVersions, setResolvedPackageVersions] = useState<Record<string, string>>({});
-  const [mcpAdapterInstalled, setMcpAdapterInstalled] = useState<boolean | null>(null);
-  const [installingMcpAdapter, setInstallingMcpAdapter] = useState(false);
   const deferredSearchText = React.useDeferredValue(searchText);
   const previousViewModeRef = React.useRef<'flat' | 'grouped'>('flat');
   const previousAutoExpandRef = React.useRef(false);
-
-  const loadMcpAdapterStatus = React.useCallback(async () => {
-    try {
-      const installed = await mcpApi.checkMcpAdapterInstalled();
-      setMcpAdapterInstalled(installed);
-    } catch (error) {
-      console.error('Failed to check MCP adapter status:', error);
-      setMcpAdapterInstalled(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    void loadMcpAdapterStatus();
-  }, [loadMcpAdapterStatus]);
-
-  const handleInstallMcpAdapter = async () => {
-    setInstallingMcpAdapter(true);
-    try {
-      await mcpApi.installMcpAdapter();
-      message.success(t('mcp.adapterInstallSuccess'));
-      await loadMcpAdapterStatus();
-    } catch (error) {
-      console.error('Failed to install MCP adapter:', error);
-      message.error(t('mcp.adapterInstallFailed'));
-    } finally {
-      setInstallingMcpAdapter(false);
-    }
-  };
 
   const filteredServers = React.useMemo(() => {
     return filterMcpServersBySearch(servers, deferredSearchText, getMcpConfigSummary);
@@ -682,25 +652,6 @@ const McpPage: React.FC = () => {
         </ManagementButton>
       </div>
 
-      {mcpAdapterInstalled === false && (
-        <Alert
-          type="warning"
-          showIcon
-          message={t('mcp.adapterMissing')}
-          description={t('mcp.adapterMissingHint')}
-          action={
-            <Button
-              size="small"
-              type="primary"
-              loading={installingMcpAdapter}
-              onClick={() => void handleInstallMcpAdapter()}
-            >
-              {t('mcp.adapterInstall')}
-            </Button>
-          }
-        />
-      )}
-
       <div className={styles.toolbar}>
         <div className={styles.toolbarPrimary}>
           <ManagementSearchInput
@@ -717,7 +668,6 @@ const McpPage: React.FC = () => {
             variant="subtle"
             controlSize="compact"
             icon={<Import size={14} aria-hidden="true" />}
-            disabled={mcpAdapterInstalled === false}
             onClick={() => setImportModalOpen(true)}
           >
             {t('mcp.importExisting')}
@@ -726,7 +676,6 @@ const McpPage: React.FC = () => {
             variant="subtle"
             controlSize="compact"
             icon={<FileText size={14} aria-hidden="true" />}
-            disabled={mcpAdapterInstalled === false}
             onClick={() => setImportJsonModalOpen(true)}
           >
             {t('mcp.importJson.button')}
@@ -735,7 +684,6 @@ const McpPage: React.FC = () => {
             variant="primary"
             controlSize="compact"
             icon={<Plus size={14} aria-hidden="true" />}
-            disabled={mcpAdapterInstalled === false}
             onClick={() => setAddModalOpen(true)}
           >
             {t('mcp.addServer')}

@@ -101,6 +101,8 @@ export interface PiExtensionListResult {
   cliPath?: string;
   /** Best-effort `pi --version` for the resolved CLI. */
   cliVersion?: string;
+  /** True when served from the persisted extension-list cache; triggers a silent refresh. */
+  fromCache?: boolean;
 }
 
 export interface PiExtensionInstallInput {

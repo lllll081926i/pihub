@@ -1013,35 +1013,3 @@ pub async fn mcp_init_default_favorites(state: State<'_, SqliteDbState>) -> Resu
 
     Ok(inserted_count)
 }
-
-/// Check whether the pi-mcp-adapter extension is installed.
-///
-/// The adapter is an npm package installed into the Pi runtime's
-/// `npm/node_modules` directory. Its absence means Pi cannot consume MCP
-/// server configs, so the MCP management UI should prompt the user to
-/// install it and keep server configuration disabled until then.
-#[tauri::command]
-pub async fn check_mcp_adapter_installed(
-    state: State<'_, SqliteDbState>,
-) -> Result<bool, String> {
-    let db = state.db();
-    let runtime_location = crate::coding::runtime_location::get_pi_runtime_location_async(&db).await?;
-    let packages_path = runtime_location.host_path.join("npm").join("node_modules");
-    Ok(packages_path.join("pi-mcp-adapter").join("package.json").exists())
-}
-
-/// Install the pi-mcp-adapter extension (`pi install npm:pi-mcp-adapter`).
-#[tauri::command]
-pub async fn install_mcp_adapter(
-    state: State<'_, SqliteDbState>,
-    app: AppHandle,
-) -> Result<String, String> {
-    use crate::coding::pi::extensions::install_pi_extension;
-    use crate::coding::pi::types::PiExtensionInstallInput;
-
-    let input = PiExtensionInstallInput {
-        source: "npm:pi-mcp-adapter".to_string(),
-    };
-    let result = install_pi_extension(state, app, input).await?;
-    Ok(result.output)
-}

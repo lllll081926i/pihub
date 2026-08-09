@@ -120,8 +120,9 @@ export const setOptionalStringField = (
 /**
  * 自动补全供应商服务地址：OpenAI 兼容接口的 baseUrl 缺少 `/v1` 后缀时自动追加。
  *
- * - 仅对 `openai-completions` / `openai-chat` 这类 OpenAI 兼容 API 生效；
- * - 地址为空、已含 `/v1`（路径尾）、已含版本段（如 `/v1beta`、`/api/v1`）或非 http(s) 地址时不改写；
+ * - 仅对 `openai-completions` / `openai-responses` / `openai-chat` 这类 OpenAI 兼容 API 生效；
+ * - 地址为空、已含版本段（如 `/v1`、`/v1beta`、`/api/v1`、`/v1.5`）、已含完整 `/models`
+ *   路径（用户粘贴完整地址）或非 http(s) 地址时不改写；
  * - 同时处理尾斜杠，避免写成 `https://host/v1/`。
  */
 export const normalizeProviderBaseUrl = (baseUrl: string, api?: string): string => {
@@ -129,16 +130,26 @@ export const normalizeProviderBaseUrl = (baseUrl: string, api?: string): string 
   if (!trimmed) {
     return trimmed;
   }
-  const isOpenAiCompat = !api || api === 'openai-completions' || api === 'openai-chat';
+  const isOpenAiCompat = !api
+    || api === 'openai-completions'
+    || api === 'openai-responses'
+    || api === 'openai-chat';
   if (!isOpenAiCompat || !/^https?:\/\//i.test(trimmed)) {
     return trimmed;
   }
-  const withoutTrailingSlash = trimmed.replace(/\/+$/, '');
-  // 已含 v1（含 v1beta / api/v1 / v1.5 等版本段）时视为用户已显式指定，不再补全
-  if (/(^|\/)+v\d+(?:beta)?$/i.test(withoutTrailingSlash)) {
-    return withoutTrailingSlash;
+  // 先拆出 query，避免把后缀追加到 query 之后（如 https://host/v1?token=x/v1），
+  // 同时只对 path 部分处理尾斜杠（query 里可能含 /）
+  const [pathPart, ...queryParts] = trimmed.split('?');
+  const path = pathPart.replace(/\/+$/, '');
+  const query = queryParts.length > 0 ? `?${queryParts.join('?')}` : '';
+  // 已含版本段（/v1、/v1beta、/api/v1、/v1.5 等）或完整 /models 路径时视为用户已显式指定，不再补全
+  if (/(?:^|\/)v\d+(?:\.\d+)?(?:beta)?$/i.test(path)) {
+    return `${path}${query}`;
   }
-  return `${withoutTrailingSlash}/v1`;
+  if (/\/models$/i.test(path)) {
+    return `${path}${query}`;
+  }
+  return `${path}/v1${query}`;
 };
 
 export const isRecordEmpty = (value: Record<string, unknown>): boolean => Object.keys(value).length === 0;

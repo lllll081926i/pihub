@@ -122,19 +122,21 @@ fn resolve_git_bin() -> Option<String> {
 }
 
 fn git_bin_works(bin: &str) -> bool {
-    Command::new(bin)
+    let mut command = Command::new(bin);
+    command
         .arg("--version")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+        .stderr(Stdio::null());
+    crate::coding::cli_resolver::apply_create_no_window(&mut command);
+    command.output().map(|o| o.status.success()).unwrap_or(false)
 }
 
 fn git_cmd() -> Command {
     let bin = resolve_git_bin().unwrap_or_else(|| "git".to_string());
     let mut cmd = Command::new(bin);
+    // GUI host must not flash a console for short-lived git spawns
+    crate::coding::cli_resolver::apply_create_no_window(&mut cmd);
     // Never block on interactive auth prompts
     cmd.env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_ASKPASS", "echo");

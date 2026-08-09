@@ -29,6 +29,7 @@ import { MagicContextSettings } from '@/features/coding/shared/magicContext';
 import {
   installPiExtension,
   listPiExtensions,
+  refreshPiExtensions,
   uninstallPiExtension,
   updatePiExtensions,
 } from '@/services/piApi';
@@ -71,6 +72,10 @@ const PiExtensionsSection: React.FC<PiExtensionsSectionProps> = () => {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const [data, setData] = React.useState<PiExtensionListResult | null>(() => EXTENSIONS_CACHE);
+  // Mirror of `data` so `loadExtensions` stays stable and the mount effect
+  // below runs exactly once instead of looping on every refresh.
+  const dataRef = React.useRef(data);
+  dataRef.current = data;
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [customSource, setCustomSource] = React.useState('');
@@ -81,30 +86,46 @@ const PiExtensionsSection: React.FC<PiExtensionsSectionProps> = () => {
   const [updatingSource, setUpdatingSource] = React.useState<string | null>(null);
   const [commandResult, setCommandResult] = React.useState<PiExtensionCommandResult | null>(null);
 
-  const loadExtensions = React.useCallback(async (background = false) => {
+  const loadExtensions = React.useCallback(async (background = false, preferCache = false) => {
     if (!background) {
       setLoading(true);
     }
     setError(null);
     try {
-      const result = await listPiExtensions();
+      const result = preferCache ? await listPiExtensions() : await refreshPiExtensions();
       setData(result);
       EXTENSIONS_CACHE = result;
+      return result;
     } catch (loadError) {
       const messageText = loadError instanceof Error ? loadError.message : String(loadError);
-      if (!data) {
+      if (dataRef.current === null) {
         setError(messageText);
       }
+      return null;
     } finally {
       if (!background) {
         setLoading(false);
       }
     }
-  }, [data]);
+  }, []);
 
+  // Guard so the cache-then-refresh sequence below runs exactly once per mount
+  // (also protects against StrictMode double-invoking the effect).
+  const didInitialLoadRef = React.useRef(false);
   React.useEffect(() => {
-    // Background refresh: show cached data first, then silently refresh
-    void loadExtensions(true);
+    if (didInitialLoadRef.current) {
+      return;
+    }
+    didInitialLoadRef.current = true;
+    // Show the persisted cache first (it survives restarts), then silently
+    // refresh in the background so the first render never blocks on the slow
+    // `pi list` + npm registry lookup.
+    void (async () => {
+      const cached = await loadExtensions(true, true);
+      if (cached?.fromCache) {
+        await loadExtensions(true, false);
+      }
+    })();
   }, [loadExtensions]);
 
   const extensions = data?.extensions ?? [];

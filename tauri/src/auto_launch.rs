@@ -61,6 +61,21 @@ fn get_auto_launch() -> Result<auto_launch::AutoLaunch, AutoLaunchError> {
 
 /// Enable auto launch on startup
 pub fn enable_auto_launch() -> Result<(), AutoLaunchError> {
+    // Debug builds do not set `windows_subsystem = "windows"` (see main.rs), so
+    // they are console apps: registering one for auto-start makes Windows open a
+    // console window at login. Log a clear warning so developers do not mistake
+    // it for a release defect. Release builds are GUI apps and never flash a
+    // console. `current_exe()` below is also what lands in the Run key, so
+    // launching the release build once re-points the registry entry to it.
+    #[cfg(target_os = "windows")]
+    if cfg!(debug_assertions) {
+        log::warn!(
+            "enable_auto_launch: registering a DEBUG build for auto-start; \
+             the login-time console window is expected for debug binaries \
+             (windows_subsystem only applies to release). Use a release build \
+             if you do not want a console window at login."
+        );
+    }
     let auto_launch = get_auto_launch()?;
     auto_launch
         .enable()

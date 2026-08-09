@@ -4,6 +4,7 @@ import { CloudDownloadOutlined, ReloadOutlined, SearchOutlined, UndoOutlined } f
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import type { FetchModelsModalProps, FetchedModel, ApiType, FetchModelsResponse } from './types';
+import { buildFetchModelsUrl } from './url';
 import styles from './index.module.less';
 
 const { Text } = Typography;
@@ -31,6 +32,7 @@ const FetchModelsModal: React.FC<FetchModelsModalProps> = ({
   const [error, setError] = React.useState<string | null>(null);
   const [fetched, setFetched] = React.useState(false);
   const [customUrl, setCustomUrl] = React.useState('');
+  const [urlManuallyEdited, setUrlManuallyEdited] = React.useState(false);
   const [searchText, setSearchText] = React.useState('');
   const [removeMissingModels, setRemoveMissingModels] = React.useState(false);
 
@@ -49,28 +51,16 @@ const FetchModelsModal: React.FC<FetchModelsModalProps> = ({
   }, [models, searchText]);
 
   // Calculate the default URL based on baseUrl, apiType, and sdkType
-  const calculatedUrl = React.useMemo(() => {
-    const base = baseUrl.trim().replace(/\/$/, '');
-    if (!base) {
-      return '';
-    }
-
-    if (apiType === 'native' && sdkType === '@ai-sdk/google') {
-      // Google Native: /models with API key in URL
-      const url = `${base}/models`;
-      if (apiKey) {
-        return `${url}?key=${apiKey}`;
-      }
-      return url;
-    }
-
-    return `${base}/models`;
-  }, [baseUrl, apiType, sdkType, apiKey]);
+  const calculatedUrl = React.useMemo(() => (
+    buildFetchModelsUrl(baseUrl, apiType, sdkType, apiKey)
+  ), [baseUrl, apiType, sdkType, apiKey]);
 
   // Update custom URL when calculated URL changes (only if not manually edited)
   React.useEffect(() => {
-    setCustomUrl(calculatedUrl);
-  }, [calculatedUrl]);
+    if (!urlManuallyEdited) {
+      setCustomUrl(calculatedUrl);
+    }
+  }, [calculatedUrl, urlManuallyEdited]);
 
   // Reset state when modal opens
   React.useEffect(() => {
@@ -81,6 +71,7 @@ const FetchModelsModal: React.FC<FetchModelsModalProps> = ({
       setFetched(false);
       setSearchText('');
       setRemoveMissingModels(false);
+      setUrlManuallyEdited(false);
       // Reset custom URL to calculated default
       setCustomUrl(calculatedUrl);
     }
@@ -266,7 +257,10 @@ const FetchModelsModal: React.FC<FetchModelsModalProps> = ({
             <Input
               className={styles.urlInput}
               value={customUrl}
-              onChange={(e) => setCustomUrl(e.target.value)}
+              onChange={(e) => {
+                setCustomUrl(e.target.value);
+                setUrlManuallyEdited(true);
+              }}
               placeholder="https://api.example.com/v1/models"
               addonAfter={
                 <Tooltip title={t('piModels.fetchModels.resetToDefault')}>
@@ -274,7 +268,10 @@ const FetchModelsModal: React.FC<FetchModelsModalProps> = ({
                     type="text"
                     size="small"
                     icon={<UndoOutlined />}
-                    onClick={() => setCustomUrl(calculatedUrl)}
+                    onClick={() => {
+                      setCustomUrl(calculatedUrl);
+                      setUrlManuallyEdited(false);
+                    }}
                     style={{ fontSize: 12 }}
                   />
                 </Tooltip>

@@ -63,6 +63,10 @@ export const listPiExtensions = async (): Promise<PiExtensionListResult> => {
   return await invoke<PiExtensionListResult>('list_pi_extensions');
 };
 
+export const refreshPiExtensions = async (): Promise<PiExtensionListResult> => {
+  return await invoke<PiExtensionListResult>('refresh_pi_extensions');
+};
+
 export const installPiExtension = async (
   input: PiExtensionInstallInput,
 ): Promise<PiExtensionCommandResult> => {

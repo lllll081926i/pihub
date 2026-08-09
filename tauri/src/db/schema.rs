@@ -14,6 +14,7 @@ pub enum DbTable {
     McpPreferences,
     FavoriteMcp,
     TokenStatsCache,
+    PiExtensionCache,
 }
 
 pub const ALL_TABLES: &[DbTable] = &[
@@ -31,6 +32,7 @@ pub const ALL_TABLES: &[DbTable] = &[
     DbTable::McpPreferences,
     DbTable::FavoriteMcp,
     DbTable::TokenStatsCache,
+    DbTable::PiExtensionCache,
 ];
 
 impl DbTable {
@@ -50,6 +52,7 @@ impl DbTable {
             DbTable::McpPreferences => "mcp_preferences",
             DbTable::FavoriteMcp => "favorite_mcp",
             DbTable::TokenStatsCache => "token_stats_cache",
+            DbTable::PiExtensionCache => "pi_extension_cache",
         }
     }
 }

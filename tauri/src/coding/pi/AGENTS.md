@@ -14,7 +14,7 @@
 - `settings.json.packages` 属于 Pi 扩展/包管理链路，不属于 Other Configuration；Other Configuration 读取时隐藏它，保存时保留现有值。
 - Pi MCP 配置由 `pi-mcp-adapter` 扩展消费，文件位于当前 Pi runtime root 下的 `mcp.json`；MCP server 主数据仍属于全局 MCP 模块。
 - SQLite 只保存 Pi root 选择和 prompt presets；不要新增 `pi_provider`、`pi_extension` 或类似第二套主数据。
-- Fetch Models 的后端 `fetch_provider_models` 命令（`pi/models_fetch.rs`）负责按 provider 的 `api` 类型拉取模型列表：OpenAI 兼容走 `GET {baseUrl}/models`（Bearer 认证），Anthropic 走 `GET {baseUrl}/v1/models`（`x-api-key` + `anthropic-version` 头，失败回退内置默认列表），Google 走 `v1beta/models?key=`。
+- Fetch Models 的后端 `fetch_provider_models` 命令（`pi/models_fetch.rs`）负责按 provider 的 `api` 类型拉取模型列表。`custom_url` 非空时视为**完整 endpoint**直接使用（前端已拼好路径/query，不要再追加后缀）；为空时按 `baseUrl` 构造：OpenAI 兼容走 `GET {base}/models`（Bearer 认证），Anthropic 走 `GET {base}/v1/models`（`x-api-key` + `anthropic-version` 头，失败回退内置默认列表），Google 走 `{base}/v1beta/models?key=`。构造与前端 `buildFetchModelsUrl`（`web/components/common/FetchModelsModal/url.ts`）都是幂等的：base 已带 `/v1`、`/v1beta`、`/models` 时不再重复追加。
 - Token 统计后端 `token_stats.rs` 提供 `get_token_stats` 命令，扫描 Pi session 目录下的 JSONL 文件，按日/按模型聚合 input/output/cache token 用量和费用。前端 TokenStatsPage 展示总览卡片、模型排行、热力图、每日明细。
 
 ## 核心设计决策
@@ -24,6 +24,7 @@
 - `defaultModel` 写 Pi 官方 settings 的裸 model id。model id 本身可能包含 `/`，不要拼成 `provider_id/model_id` 风格。
 - 扩展管理优先通过 Pi CLI 执行 `list/install/remove/update`，并优先附带 `--no-approve`，避免非交互环境下 project trust 提示卡住；若用户 Pi CLI 过旧或不识别该 flag（例如 `Unknown option --no-approve for "list"`），必须降级重试一次不带该 flag。本地 `.ts` 文件扩展只扫描当前 runtime root 派生的 `extensions/` 目录。
 - `list_pi_extensions` 会在本地 `currentVersion` 之上，对未 pin 的 `npm:` 包并发查询 registry `dist-tags.latest`，填充 `latestVersion` / `updateAvailable`。查询失败必须静默降级，不能让整个 list 失败。git/local/pin 源首版不检测。
+- 扩展列表是**缓存优先**：`list_pi_extensions` 命中 `pi_extension_cache` 持久缓存时秒回并标记 `from_cache=true`（前端先显示，再后台调 `refresh_pi_extensions` 静默更新）；无缓存时完整扫描并写缓存。`refresh_pi_extensions` 重新执行 `pi list` + registry 查询并更新缓存。install/uninstall/update 成功后必须走 `refresh_pi_extensions`，不能只读缓存，否则 UI 拿到旧列表。
 
 ## Gotchas
 

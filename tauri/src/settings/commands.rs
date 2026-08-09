@@ -64,9 +64,12 @@ pub fn restart_app() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
-        // Use cmd /c start to spawn a new process and return immediately
-        Command::new("cmd")
-            .args(&["/c", "start", "", current_exe.to_string_lossy().as_ref()])
+        // Use cmd /c start to spawn a new process and return immediately;
+        // CREATE_NO_WINDOW prevents a flash cmd console from the GUI host.
+        let mut command = Command::new("cmd");
+        command.args(["/c", "start", "", current_exe.to_string_lossy().as_ref()]);
+        crate::coding::cli_resolver::apply_create_no_window(&mut command);
+        command
             .spawn()
             .map_err(|e| format!("Failed to spawn new process: {}", e))?;
     }

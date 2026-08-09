@@ -840,11 +840,6 @@
       "configField": "MCP 字段名",
       "configFieldRequired": "请输入 MCP 字段名"
     },
-    "adapterMissing": "未安装 MCP Adapter",
-    "adapterMissingHint": "Pi 需要通过 pi-mcp-adapter 扩展消费 MCP 配置。请先安装它，完成后即可添加和管理 MCP 服务器。",
-    "adapterInstall": "一键安装",
-    "adapterInstallSuccess": "MCP Adapter 安装成功",
-    "adapterInstallFailed": "MCP Adapter 安装失败",
     "timeoutPiLabel": "Pi 连接超时（ms）"
   },
   "pi": {

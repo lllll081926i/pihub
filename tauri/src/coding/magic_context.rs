@@ -6,7 +6,8 @@ use serde_json::Value;
 use tokio::process::Command;
 
 use crate::coding::cli_resolver::{
-    build_local_tokio_command, local_cli_missing_hint, resolve_local_npx_program,
+    apply_create_no_window_tokio, build_local_tokio_command, local_cli_missing_hint,
+    resolve_local_npx_program,
 };
 use crate::coding::runtime_location::{
     self, build_windows_unc_path, expand_home_from_user_root, RuntimeLocationInfo,
@@ -275,6 +276,7 @@ fn build_doctor_command(
                     "--harness",
                     harness_value,
                 ]);
+                apply_create_no_window_tokio(&mut command);
                 return MagicContextCommandInvocation {
                     command,
                     display_command: format!(

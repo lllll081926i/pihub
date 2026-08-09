@@ -1446,6 +1446,7 @@ pub fn run() {
             coding::pi::save_pi_models_provider,
             coding::pi::delete_pi_runtime_provider,
             coding::pi::list_pi_extensions,
+            coding::pi::refresh_pi_extensions,
             coding::pi::fetch_provider_models,
             coding::pi::get_token_stats,
             coding::pi::refresh_token_stats,
@@ -1545,8 +1546,6 @@ pub fn run() {
             coding::mcp::mcp_upsert_favorite,
             coding::mcp::mcp_delete_favorite,
             coding::mcp::mcp_init_default_favorites,
-            coding::mcp::check_mcp_adapter_installed,
-            coding::mcp::install_mcp_adapter,
         ])
         .build(tauri::generate_context!())
         .map_err(|e| {

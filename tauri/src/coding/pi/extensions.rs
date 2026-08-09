@@ -18,6 +18,8 @@ use crate::coding::cli_resolver::{
 };
 use crate::coding::runtime_location::{self, RuntimeLocationInfo, RuntimeLocationMode};
 use crate::coding::url_utils::encode_url_path_segment;
+use crate::db::helpers::{db_get, db_put};
+use crate::db::schema::DbTable;
 use crate::db::SqliteDbState;
 use crate::http_client;
 
@@ -700,12 +702,36 @@ fn emit_extensions_changed(app: &tauri::AppHandle, payload: &str) {
     let _ = app.emit("config-changed", payload);
 }
 
-#[tauri::command]
-pub async fn list_pi_extensions(
-    state: tauri::State<'_, SqliteDbState>,
-) -> Result<PiExtensionListResult, String> {
-    let db = state.db();
-    let runtime_location = runtime_location::get_pi_runtime_location_async(&db).await?;
+/// Persisted extension-list cache: the UI shows it instantly on entry and
+/// silently refreshes via `refresh_pi_extensions` afterwards, so the first
+/// render never blocks on the slow `pi list` + registry lookup.
+const EXTENSION_CACHE_ID: &str = "pi_extension_cache/list";
+
+fn read_extension_cache(db: &SqliteDbState) -> Option<PiExtensionListResult> {
+    let value = db
+        .with_conn(|conn| db_get(conn, DbTable::PiExtensionCache, EXTENSION_CACHE_ID))
+        .ok()??;
+    let mut cached: PiExtensionListResult = serde_json::from_value(value).ok()?;
+    cached.from_cache = true;
+    Some(cached)
+}
+
+fn write_extension_cache(db: &SqliteDbState, result: &PiExtensionListResult) {
+    let Ok(value) = serde_json::to_value(result) else {
+        return;
+    };
+    let _ = db.with_conn(|conn| {
+        db_put(
+            conn,
+            DbTable::PiExtensionCache,
+            EXTENSION_CACHE_ID,
+            &value,
+        )
+    });
+}
+
+async fn scan_extensions(db: &SqliteDbState) -> Result<PiExtensionListResult, String> {
+    let runtime_location = runtime_location::get_pi_runtime_location_async(db).await?;
     let extensions_path = get_pi_extensions_path_from_root(&runtime_location.host_path);
     let packages_path = get_pi_packages_path_from_root(&runtime_location.host_path);
     let (raw, _) =
@@ -714,7 +740,7 @@ pub async fn list_pi_extensions(
     let pi_extensions = enrich_current_versions(parse_list_output(&raw));
     let local_extensions = scan_local_extensions(&extensions_path)?;
     let merged = merge_extensions(pi_extensions, local_extensions);
-    let extensions = enrich_npm_update_availability(&db, merged).await;
+    let extensions = enrich_npm_update_availability(db, merged).await;
     let cli_path = resolve_pi_cli_display_path(&runtime_location);
     let cli_version = probe_pi_cli_version(&runtime_location).await;
 
@@ -725,7 +751,35 @@ pub async fn list_pi_extensions(
         raw,
         cli_path,
         cli_version,
+        from_cache: false,
     })
+}
+
+/// List Pi extensions, cache-first: an existing persisted cache is returned
+/// immediately (marked `from_cache`) so the UI can render without waiting for
+/// the slow `pi list` + npm registry lookup; a missing cache triggers a full
+/// scan that also updates the cache.
+#[tauri::command]
+pub async fn list_pi_extensions(
+    state: tauri::State<'_, SqliteDbState>,
+) -> Result<PiExtensionListResult, String> {
+    if let Some(cached) = read_extension_cache(&state.db()) {
+        return Ok(cached);
+    }
+    let result = scan_extensions(&state.db()).await?;
+    write_extension_cache(&state.db(), &result);
+    Ok(result)
+}
+
+/// Re-scan Pi extensions (CLI + registry) and update the persisted cache.
+/// The UI calls this silently in the background after showing cached data.
+#[tauri::command]
+pub async fn refresh_pi_extensions(
+    state: tauri::State<'_, SqliteDbState>,
+) -> Result<PiExtensionListResult, String> {
+    let result = scan_extensions(&state.db()).await?;
+    write_extension_cache(&state.db(), &result);
+    Ok(result)
 }
 
 #[tauri::command]

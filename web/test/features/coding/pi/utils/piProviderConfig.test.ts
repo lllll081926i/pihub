@@ -35,6 +35,28 @@ test('normalizeProviderBaseUrl keeps existing version segments', () => {
     normalizeProviderBaseUrl('https://api.example.com/api/v1'),
     'https://api.example.com/api/v1',
   );
+  assert.equal(
+    normalizeProviderBaseUrl('https://api.example.com/v1.5'),
+    'https://api.example.com/v1.5',
+  );
+});
+
+test('normalizeProviderBaseUrl keeps a full /models base untouched', () => {
+  assert.equal(
+    normalizeProviderBaseUrl('https://api.example.com/v1/models'),
+    'https://api.example.com/v1/models',
+  );
+  assert.equal(
+    normalizeProviderBaseUrl('https://api.example.com/models'),
+    'https://api.example.com/models',
+  );
+});
+
+test('normalizeProviderBaseUrl applies to openai-responses', () => {
+  assert.equal(
+    normalizeProviderBaseUrl('https://api.example.com', 'openai-responses'),
+    'https://api.example.com/v1',
+  );
 });
 
 test('normalizeProviderBaseUrl does not rewrite non-OpenAI-compatible apis', () => {
@@ -54,5 +76,19 @@ test('normalizeProviderBaseUrl leaves empty and non-http urls unchanged', () => 
   assert.equal(
     normalizeProviderBaseUrl('localhost:8080'),
     'localhost:8080',
+  );
+});
+test('normalizeProviderBaseUrl keeps query strings outside the appended suffix', () => {
+  assert.equal(
+    normalizeProviderBaseUrl('https://api.example.com/v1?token=x'),
+    'https://api.example.com/v1?token=x',
+  );
+  assert.equal(
+    normalizeProviderBaseUrl('https://api.example.com?token=x'),
+    'https://api.example.com/v1?token=x',
+  );
+  assert.equal(
+    normalizeProviderBaseUrl('https://api.example.com/models?alt=json'),
+    'https://api.example.com/models?alt=json',
   );
 });
