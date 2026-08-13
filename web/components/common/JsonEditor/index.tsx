@@ -6,6 +6,16 @@ import { useThemeStore } from '@/stores/themeStore';
 
 type EditorMode = 'tree' | 'text' | 'table';
 
+/** JSON 语义等价判断：忽略空白差异，解析失败时退化为字符串比较 */
+const isSemanticallyEqualJson = (a: string, b: string): boolean => {
+  if (a === b) return true;
+  try {
+    return JSON.stringify(JSON.parse(a)) === JSON.stringify(JSON.parse(b));
+  } catch {
+    return false;
+  }
+};
+
 export interface JsonEditorProps {
   /** JSON value - can be an object, array, or any JSON-compatible value */
   value?: unknown;
@@ -68,6 +78,15 @@ const JsonEditor: React.FC<JsonEditorProps> = ({
   // 标记用户是否正在编辑器中输入
   const isUserEditingRef = useRef(false);
   const [isUserEditing, setIsUserEditing] = useState(false);
+
+  // blur 回调用 ref 持有最新版本：editorDidMount 只触发一次，
+  // 直接捕获 props 回调会永远是首次渲染的过期闭包
+  const onBlurRef = useRef(onBlur);
+  const onRawBlurRef = useRef(onRawBlur);
+  useEffect(() => {
+    onBlurRef.current = onBlur;
+    onRawBlurRef.current = onRawBlur;
+  }, [onBlur, onRawBlur]);
 
   // 规范化值为字符串
   const normalizedValue = value === undefined || value === null ? '' : value;
@@ -199,23 +218,24 @@ const JsonEditor: React.FC<JsonEditorProps> = ({
       setIsUserEditing(false);
       editorInstance.updateOptions({ renderLineHighlight: 'none' });
       const currentContent = editorInstance.getValue();
-      onRawBlur?.(currentContent);
+      onRawBlurRef.current?.(currentContent);
       // 失去焦点时触发 onBlur 回调
-      if (onBlur) {
+      const blurCallback = onBlurRef.current;
+      if (blurCallback) {
         const trimmedValue = currentContent.trim();
         if (trimmedValue === '') {
-          onBlur(null, true);
+          blurCallback(null, true);
         } else {
           try {
             const parsed = JSON.parse(currentContent);
-            onBlur(parsed, true);
+            blurCallback(parsed, true);
           } catch {
-            onBlur(currentContent, false);
+            blurCallback(currentContent, false);
           }
         }
       }
     });
-  }, [valueString, validateAndSetMarkers, onBlur, onRawBlur]);
+  }, [valueString, validateAndSetMarkers]);
 
   const handleChange = useCallback((newValue: string) => {
     editorContentRef.current = newValue;
@@ -262,6 +282,12 @@ const JsonEditor: React.FC<JsonEditorProps> = ({
     lastExternalValueStringRef.current = valueString;
 
     if (editorContentRef.current === valueString) {
+      return;
+    }
+
+    // 语义等价时跳过覆盖：保留用户自定义的排版（如 PiOtherPage blur 后
+    // 父组件回写格式化 JSON，不应把编辑器里用户的原始排版重排）
+    if (isSemanticallyEqualJson(editorContentRef.current ?? '', valueString)) {
       return;
     }
 
@@ -327,8 +353,8 @@ const JsonEditor: React.FC<JsonEditorProps> = ({
 
   // Monaco theme based on app theme
   const monacoTheme = resolvedTheme === 'dark' ? 'vs-dark' : 'vs';
-  const borderColor = resolvedTheme === 'dark' ? 'var(--color-border-secondary)' : '#d9d9d9';
-  const placeholderColor = resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.45)' : '#999';
+  const borderColor = 'var(--color-border-secondary)';
+  const placeholderColor = 'var(--color-text-tertiary)';
 
   return (
     <div style={{ position: 'relative', height: actualHeight }}>

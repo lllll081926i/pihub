@@ -1,12 +1,15 @@
-/* CSS Variables for theming */
+/* CSS Variables for theming
+ * NOTE: ECharts canvas cannot resolve CSS vars; the hex mirrors live in
+ * web/features/coding/pi/components/charts/chartPalette.ts. Keep both in sync
+ * when changing color tokens. */
 :root {
   /* Background colors */
   --color-bg-base: #ffffff;
   --color-bg-container: #ffffff;
-  --color-bg-layout: #fefefe;
-  --color-bg-elevated: #fafafa;
-  --color-bg-hover: #f5f5f5;
-  --color-bg-selected: #f0f7ff;
+  --color-bg-layout: #f4f5f7;
+  --color-bg-elevated: #fafbfc;
+  --color-bg-hover: rgba(0, 0, 0, 0.045);
+  --color-bg-selected: #e6f4ff;
 
   /* Text colors */
   --color-text-primary: rgba(0, 0, 0, 0.88);
@@ -22,6 +25,7 @@
   /* Semantic status colors */
   --color-status-success: #16a34a;
   --color-status-warning: #d97706;
+  --color-status-warning-bg: rgba(217, 119, 6, 0.1);
   --color-status-error: #dc2626;
   --color-status-error-bg: rgba(220, 38, 38, 0.08);
   --color-status-error-border: rgba(220, 38, 38, 0.28);
@@ -74,32 +78,37 @@
   --duration-normal: 200ms;
   --duration-slow: 300ms;
 
-  --color-scrollbar: rgba(0, 0, 0, 0.2);
+  --color-scrollbar: rgba(0, 0, 0, 0.18);
+  --color-scrollbar-hover: rgba(0, 0, 0, 0.32);
+
+  /* Focus ring */
+  --color-focus-ring: rgba(22, 119, 255, 0.28);
 }
 
 [data-theme='dark'] {
-  /* Background colors - 4-layer hierarchy */
-  --color-bg-base: #141414;
-  --color-bg-container: #1a1a1a;
-  --color-bg-layout: #0d0d0d;
-  --color-bg-elevated: #242424;
-  --color-bg-hover: #2a2a2a;
-  --color-bg-selected: #111d2c;
+  /* Background colors - 冷调分层深色 */
+  --color-bg-base: #13161b;
+  --color-bg-container: #171b21;
+  --color-bg-layout: #0e1013;
+  --color-bg-elevated: #1e242c;
+  --color-bg-hover: rgba(255, 255, 255, 0.06);
+  --color-bg-selected: #16283f;
 
   /* Text colors */
   --color-text-primary: rgba(255, 255, 255, 0.88);
   --color-text-secondary: rgba(255, 255, 255, 0.65);
   --color-text-tertiary: rgba(255, 255, 255, 0.45);
 
-  /* Border colors - increased contrast */
-  --color-border: rgba(255, 255, 255, 0.16);
-  --color-border-secondary: rgba(255, 255, 255, 0.24);
-  --color-border-card: rgba(255, 255, 255, 0.1);
-  --color-border-card-subtle: rgba(255, 255, 255, 0.08);
+  /* Border colors - 随分层底色收敛 */
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-secondary: rgba(255, 255, 255, 0.18);
+  --color-border-card: rgba(255, 255, 255, 0.08);
+  --color-border-card-subtle: rgba(255, 255, 255, 0.05);
 
   /* Semantic status colors */
   --color-status-success: #22c55e;
   --color-status-warning: #f59e0b;
+  --color-status-warning-bg: rgba(245, 158, 11, 0.14);
   --color-status-error: #f87171;
   --color-status-error-bg: rgba(248, 113, 113, 0.12);
   --color-status-error-border: rgba(248, 113, 113, 0.32);
@@ -123,7 +132,11 @@
   --shadow-card-sm-hover: var(--shadow-sm-hover);
   --shadow-container: var(--shadow-md);
 
-  --color-scrollbar: rgba(255, 255, 255, 0.2);
+  --color-scrollbar: rgba(255, 255, 255, 0.18);
+  --color-scrollbar-hover: rgba(255, 255, 255, 0.32);
+
+  /* Focus ring */
+  --color-focus-ring: rgba(77, 150, 255, 0.38);
 }
 
 /* Fill window background to cover rounded corners */
@@ -167,6 +180,10 @@ body {
   border-radius: 4px;
 }
 
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-scrollbar-hover);
+}
+
 ::-webkit-scrollbar-track {
   background-color: transparent;
 }
@@ -174,15 +191,16 @@ body {
 /* KeepAlive route transition */
 .keep-alive-route {
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(8px);
 }
 
 .keep-alive-route-active {
   opacity: 1;
   transform: translateY(0);
+  will-change: opacity, transform;
   transition:
-    opacity 260ms var(--ease-out-quart),
-    transform 260ms var(--ease-out-quart);
+    opacity 200ms var(--ease-out-expo),
+    transform 200ms var(--ease-out-expo);
 }
 
 /* Theme-aware surfaces animate with the theme switch for a softer transition. */
@@ -281,8 +299,8 @@ body {
 
 [data-theme='dark'] .ant-btn-default:not(.ant-btn-dangerous):hover {
   background-color: var(--color-bg-hover);
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: var(--ant-color-primary);
+  color: var(--ant-color-primary);
 }
 
 /* Fix Select dropdown popup in dark mode */

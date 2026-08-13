@@ -399,7 +399,7 @@ export const ImportMcpModal: React.FC<ImportMcpModalProps> = ({
         <Modal
           title={
             <span>
-              <WarningOutlined style={{ color: '#faad14', marginRight: 8 }} />
+              <WarningOutlined style={{ color: 'var(--color-status-warning)', marginRight: 8 }} />
               {t('mcp.importDuplicateModal.title')}
             </span>
           }

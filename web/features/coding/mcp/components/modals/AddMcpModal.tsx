@@ -537,6 +537,7 @@ export const AddMcpModal: React.FC<AddMcpModalProps> = ({
       width={700}
     >
       <Form
+        autoComplete="off"
         form={form}
         layout="horizontal"
         labelCol={{ span: 6 }}

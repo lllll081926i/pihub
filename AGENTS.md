@@ -371,6 +371,7 @@ fn command_name(param: &str) -> Result<ReturnType, String> {
 - Before adding paired validation such as "both filled or both empty", first verify backend types, existing imported data, restore flows, and edit flows. If stored data already permits one-sided values, blocking save in the form is a regression.
 - When removing or clearing provider-derived env/config keys, explicitly clean known keys before merging newly selected values. Do not assume omission in the new payload will delete old values automatically.
 - For tools whose runtime config file mixes PiHub-managed fields with runtime-owned fields, rewrites must remove the previous PiHub-managed fields first, then write the new managed fields. Do not preserve previous managed fields by default.
+- 写用户工具配置文件（MCP/Provider 等混有用户其他配置的第三方文件）必须原子写：统一走 `coding::file_io::write_all_atomic_async`（临时文件 + rename），禁止裸 `std::fs::write` 整体覆盖；async 链路里的文件 I/O 一律走 `coding::file_io` 的超时封装，不裸调阻塞 `std::fs`。
 - When a database update immediately reapplies managed configuration to runtime files, capture the previous database record before overwriting it and pass that snapshot into cleanup explicitly. Re-querying the applied row after `put`/`update` returns the new record, so removed model keys, renamed fields, and cleared sections cannot be identified and will remain stale on disk.
 - For third-party config nodes that PiHub does not fully own, preserve unknown fields and legal schema shapes across read -> write round trips. If a field allows multiple valid forms such as `string | tuple`, `bool | object`, or `string | string[]`, do not normalize it to a narrower shape unless the task explicitly migrates user data and tests that migration.
 - In Pi `settings.json`, explicitly preserve runtime-owned top-level fields such as `packages` during provider/common-config rewrites. These fields are not the same thing as PiHub-managed provider/common config.
@@ -504,6 +505,12 @@ features/
 - 备份导出/导入命令在 `settings/commands.rs`（`export_database_backup` / `import_database_backup`），核心实现在 `db/backup_commands.rs`：导出用 `backup_to_path`（WAL checkpoint + 在线备份，产出无 WAL/SHM 的一致性单文件）并写 `db_manifest.json`；导入先只读校验 `user_version` 不高于 `TARGET_SCHEMA_VERSION` + JSONB/quick_check，然后暂存到 `{app_data_dir}/.restore-incoming/` 并写 `.restore-pending.flag`，重启时在 `SqliteDbState::open` 之前执行 `swap_restore_pending_on_startup`（先备份旧库到 `sqlite-restore-backups/`，失败则中止恢复保留旧库与 flag，再替换并清 flag）。不要在业务层直接覆盖正在运行的数据库文件。
 - 跨表状态切换（如 applied flag）必须在 SQLite 事务或 helper 组合内完成；单表 applied 切换优先用 `db_update_applied_status`，不能在业务层逐条 `db_patch_where_bool` 后再单独 patch 目标记录。
 - 少数独立物理表（如 Gateway `model_pricing`）使用官方默认数据补齐时，必须优先保护用户已有行；默认 seed / 远端同步只能用 `INSERT OR IGNORE` 这类增量插入语义，不能覆盖用户自定义值。
+
+## 开机自启（Auto Launch）规则
+
+- 注册表 Run 键与 DB 的 `launch_on_startup` 必须同生同死：`set_auto_launch` 在写注册表后同步落 DB，否则 lib.rs 启动任务会按旧 DB 值把用户刚关掉的条目重新写回，表现为“开关关不掉”。
+- lib.rs 启动时的重注册只能走 `auto_launch::re_register_auto_launch()`；Windows debug 构建是 console 子系统，直接 `enable_auto_launch()` 会把 Run 键劫持到 debug exe，导致登录弹控制台窗口。
+- 旧版本曾用 "AI Toolbox" 作为注册表条目名；auto-launch crate 只管理当前名字，enable/disable/启动重注册必须顺带清理该遗留条目，否则老 exe 会一直随机启动。
 
 ## Skills / Pi 提示
 

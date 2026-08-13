@@ -427,10 +427,17 @@ fn builtin_providers() -> Vec<PiBuiltinProvider> {
         .collect()
 }
 
-fn emit_config_changed<R: Runtime>(app: &tauri::AppHandle<R>, payload: &str) {
+pub(crate) fn emit_config_changed<R: Runtime>(app: &tauri::AppHandle<R>, payload: &str) {
     let _ = app.emit("config-changed", payload);
     #[cfg(target_os = "windows")]
     let _ = app.emit("wsl-sync-request-pi", ());
+}
+
+/// Serializes read-modify-write cycles on models.json across commands
+/// (save / repair / delete) so concurrent invocations cannot lose updates.
+pub(crate) fn models_json_lock() -> &'static tokio::sync::Mutex<()> {
+    static LOCK: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
 }
 
 #[tauri::command]
@@ -761,8 +768,27 @@ pub async fn save_pi_models_provider(
         return Err("Pi models provider config must be a JSON object".to_string());
     }
 
+    // Normalize the base URL on every write path (modal, tray, import) so a
+    // missing version suffix never reaches disk and 404s at runtime. The
+    // normalization is idempotent, so an already-normalized URL is untouched.
+    let mut provider = input.provider;
+    if let Some(obj) = provider.as_object_mut() {
+        let api = obj
+            .get("api")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        if let Some(base_url) = obj.get("baseUrl").and_then(Value::as_str) {
+            let normalized =
+                super::provider_url::normalize_provider_base_url(base_url, api.as_deref());
+            if normalized != base_url {
+                obj.insert("baseUrl".to_string(), Value::String(normalized));
+            }
+        }
+    }
+
     let db = state.db();
     let models_path = get_pi_models_path_async(&db).await?;
+    let _guard = models_json_lock().lock().await;
     let mut models = file_io::read_json_object_or_empty_async(&models_path).await?;
     let models_object = object_mut(&mut models)?;
     if !models_object
@@ -776,7 +802,7 @@ pub async fn save_pi_models_provider(
         .get_mut("providers")
         .and_then(Value::as_object_mut)
         .ok_or_else(|| "models.providers must be a JSON object".to_string())?
-        .insert(provider_key.to_string(), input.provider);
+        .insert(provider_key.to_string(), provider);
 
     file_io::write_json_object_async(&models_path, &models).await?;
     emit_config_changed(&app, "window");
@@ -806,6 +832,7 @@ pub async fn delete_pi_runtime_provider(
 
     if matches!(scope, PiDeleteScope::ProviderConfig | PiDeleteScope::Both) {
         let models_path = get_pi_models_path_async(&db).await?;
+        let _guard = models_json_lock().lock().await;
         let mut models = file_io::read_json_object_or_empty_async(&models_path).await?;
         if let Some(providers) = models.get_mut("providers").and_then(Value::as_object_mut) {
             providers.remove(provider_key);

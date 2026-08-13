@@ -9,6 +9,7 @@ import { useThemeStore } from '@/stores/themeStore';
 import { useUpdateManager, type UpdateDownloadProgress, type UpdateInfo } from '@/hooks/useUpdateManager';
 import {
   setWindowBackgroundColor,
+  setWindowTheme,
   loadCachedPresetModels,
   fetchRemotePresetModels,
 } from '@/services';
@@ -106,7 +107,22 @@ export const Providers: React.FC<ProvidersProps> = ({ children }) => {
   const antdThemeConfig = React.useMemo(() => ({
     algorithm: resolvedTheme === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
     token: {
-      colorPrimary: '#1890ff',
+      colorPrimary: '#1677ff',
+      colorInfo: '#1677ff',
+      borderRadius: 6,
+      // Align Ant Design surfaces with the App.css design tokens so antd
+      // components (Card/Modal/Table/Select) share the same layered palette.
+      ...(resolvedTheme === 'dark' ? {
+        colorBgLayout: '#0e1013',
+        colorBgContainer: '#171b21',
+        colorBgElevated: '#1e242c',
+        colorBorder: 'rgba(255, 255, 255, 0.18)',
+        colorBorderSecondary: 'rgba(255, 255, 255, 0.1)',
+      } : {
+        colorBgLayout: '#f4f5f7',
+        colorBgContainer: '#ffffff',
+        colorBgElevated: '#fafbfc',
+      }),
     },
   }), [resolvedTheme]);
 
@@ -166,12 +182,14 @@ export const Providers: React.FC<ProvidersProps> = ({ children }) => {
     }
   }, [resolvedTheme, themeInitialized]);
 
-  // Set window background color for macOS titlebar
+  // Set window background color for macOS titlebar and sync native title bar theme
   React.useEffect(() => {
     if (themeInitialized) {
-      // Light theme: #ffffff, Dark theme: #1f1f1f
-      const bgColor = resolvedTheme === 'dark' ? { r: 31, g: 31, b: 31 } : { r: 255, g: 255, b: 255 };
+      // Light theme: #ffffff, Dark theme: #0e1013 (matches --color-bg-base)
+      const bgColor = resolvedTheme === 'dark' ? { r: 14, g: 16, b: 19 } : { r: 255, g: 255, b: 255 };
       setWindowBackgroundColor(bgColor.r, bgColor.g, bgColor.b).catch(console.error);
+      // Windows native title bar follows the app theme via DWM immersive dark mode.
+      setWindowTheme(resolvedTheme).catch(console.error);
     }
   }, [resolvedTheme, themeInitialized]);
 

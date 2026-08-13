@@ -73,7 +73,7 @@ fn path_has_version_segment(path: &str) -> bool {
 /// provider-specific version segment) is used as-is instead of appending a
 /// duplicate suffix. A query string, when present, is always re-appended
 /// after the path suffix so it never lands in the middle of the URL.
-fn build_models_endpoint(
+pub(crate) fn build_models_endpoint(
     base_url: &str,
     api_type: &str,
     sdk_type: Option<&str>,

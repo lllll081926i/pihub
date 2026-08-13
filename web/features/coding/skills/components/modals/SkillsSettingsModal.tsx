@@ -719,7 +719,7 @@ export const SkillsSettingsModal: React.FC<SkillsSettingsModalProps> = ({
       >
         <div style={{ marginBottom: 16 }}>
           <p>{t('skills.clearAll.modalMessage', { count: skills.length })}</p>
-          <p style={{ color: '#ff4d4f', fontWeight: 500 }}>
+          <p style={{ color: 'var(--color-status-error)', fontWeight: 500 }}>
             {t('skills.clearAll.modalWarning')}
           </p>
         </div>

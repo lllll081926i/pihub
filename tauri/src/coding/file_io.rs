@@ -120,6 +120,53 @@ pub async fn write_all_async(path: &Path, content: &str) -> io::Result<()> {
     }
 }
 
+/// Atomic variant of `write_all_async`: writes to a sibling temp file, then
+/// renames over the target. A crash mid-write leaves the previous file intact
+/// instead of a truncated user config. Temp file is cleaned up on failure.
+/// Note: on timeout the blocking write may still land after the caller sees
+/// the TimedOut error (inherent to abandon-on-timeout); callers must not
+/// blindly retry without re-reading the file.
+pub async fn write_all_atomic_async(path: &Path, content: &str) -> io::Result<()> {
+    let owned = path.to_path_buf();
+    let content = content.to_string();
+    match tokio::time::timeout(
+        DEFAULT_FILE_IO_TIMEOUT,
+        run_blocking(move || -> io::Result<()> {
+            if let Some(parent) = owned.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            let file_name = owned
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("config");
+            // Unique tmp name: two concurrent writers to the same target must
+            // not share one temp path and rename each other's content.
+            static TMP_COUNTER: std::sync::atomic::AtomicU64 =
+                std::sync::atomic::AtomicU64::new(0);
+            let seq = TMP_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let tmp_path = owned.with_file_name(format!(
+                ".{file_name}.pihub-tmp-{}-{seq}",
+                std::process::id()
+            ));
+            if let Err(error) = std::fs::write(&tmp_path, content) {
+                let _ = std::fs::remove_file(&tmp_path);
+                return Err(error);
+            }
+            if let Err(error) = std::fs::rename(&tmp_path, &owned) {
+                let _ = std::fs::remove_file(&tmp_path);
+                return Err(error);
+            }
+            Ok(())
+        }),
+    )
+    .await
+    {
+        Ok(Ok(result)) => result,
+        Ok(Err(error)) => Err(error),
+        Err(_) => Err(timeout_error("writing", path)),
+    }
+}
+
 /// Read a JSON object file, returning an empty object when the file is missing
 /// or unreadable within the timeout. Mirrors the sync helper used in the Pi
 /// module but safe for async contexts with possibly-unreachable paths.
@@ -179,7 +226,9 @@ pub async fn write_json_object_async(path: &Path, value: &Value) -> Result<(), S
     }
     let content = serde_json::to_string_pretty(value)
         .map_err(|error| format!("Failed to serialize {}: {error}", path.display()))?;
-    write_all_async(path, &format!("{content}\n"))
+    // User-facing JSON configs must be atomic: a crash mid-write must not
+    // leave a truncated models.json / auth.json behind.
+    write_all_atomic_async(path, &format!("{content}\n"))
         .await
         .map_err(|error| format!("Failed to write {}: {error}", path.display()))?;
     Ok(())

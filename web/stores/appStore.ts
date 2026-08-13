@@ -32,6 +32,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
       });
     } catch (error) {
       console.error('Failed to load app settings:', error);
+      // 初始化失败也要以默认值进入应用，避免永久全屏 Loading
+      set({ isInitialized: true });
     } finally {
       set({ isLoading: false });
     }

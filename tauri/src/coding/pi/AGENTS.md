@@ -15,6 +15,8 @@
 - Pi MCP 配置由 `pi-mcp-adapter` 扩展消费，文件位于当前 Pi runtime root 下的 `mcp.json`；MCP server 主数据仍属于全局 MCP 模块。
 - SQLite 只保存 Pi root 选择和 prompt presets；不要新增 `pi_provider`、`pi_extension` 或类似第二套主数据。
 - Fetch Models 的后端 `fetch_provider_models` 命令（`pi/models_fetch.rs`）负责按 provider 的 `api` 类型拉取模型列表。`custom_url` 非空时视为**完整 endpoint**直接使用（前端已拼好路径/query，不要再追加后缀）；为空时按 `baseUrl` 构造：OpenAI 兼容走 `GET {base}/models`（Bearer 认证），Anthropic 走 `GET {base}/v1/models`（`x-api-key` + `anthropic-version` 头，失败回退内置默认列表），Google 走 `{base}/v1beta/models?key=`。构造与前端 `buildFetchModelsUrl`（`web/components/common/FetchModelsModal/url.ts`）都是幂等的：base 已带 `/v1`、`/v1beta`、`/models` 时不再重复追加。
+- Provider baseUrl 版本后缀归一化的唯一事实源是 `pi/provider_url.rs`（后端）与 `web/features/coding/pi/utils/piProviderConfig.ts` 的 `normalizeProviderBaseUrl`（前端），两处规则必须同步：OpenAI 兼容与 `anthropic-messages` 补 `/v1`，`google-generative-ai` / `google-vertex` 补 `/v1beta`；已含版本段（`/v1`、`/v1beta`、`/api/v1`、`/v1.5`）或完整 `/models` 路径、非 http(s)、query 已存在时都不改写（幂等，不重复加也不少加）。`save_pi_models_provider` 会在落盘前归一化 `baseUrl`，覆盖弹窗/托盘/导入等全部写入路径。
+- `pi/provider_checkup.rs` 提供 `check_pi_providers`（体检：缺后缀检测 + 可选连通性探测，404→`not_found`、401/403→`auth`、连接失败→`unreachable`；存疑时会再探测建议地址并标记 `suggestedProbeOk`）与 `repair_pi_providers`（幂等归一化全部 models.json provider 的 baseUrl，只动 `baseUrl` 字段，unknown fields 原样保留）。
 - Token 统计后端 `token_stats.rs` 提供 `get_token_stats` 命令，扫描 Pi session 目录下的 JSONL 文件，按日/按模型聚合 input/output/cache token 用量和费用。前端 TokenStatsPage 展示总览卡片、模型排行、热力图、每日明细。
 
 ## 核心设计决策

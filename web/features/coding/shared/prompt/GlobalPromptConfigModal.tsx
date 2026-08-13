@@ -78,6 +78,7 @@ const GlobalPromptConfigModal: React.FC<GlobalPromptConfigModalProps> = ({
         <Form
           form={form}
           layout="horizontal"
+          autoComplete="off"
           labelCol={{ span: 2 }}
           wrapperCol={{ span: 22 }}
         >

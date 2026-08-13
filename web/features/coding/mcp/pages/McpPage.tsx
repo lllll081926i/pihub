@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
 import { Modal, message } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
 import {
   ChevronsDown,
   ChevronsUp,
@@ -19,7 +18,6 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { DragEndEvent } from '@dnd-kit/core';
@@ -81,7 +79,6 @@ function getMcpConfigSummary(server: McpServer): string {
 
 const McpPage: React.FC = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { servers, loading, refresh } = useMcp();
   const { tools } = useMcpTools();
   const { setServers, isSettingsModalOpen, setSettingsModalOpen, isImportModalOpen, setImportModalOpen, isImportJsonModalOpen, setImportJsonModalOpen, loadScanResult } = useMcpStore();
@@ -637,10 +634,17 @@ const McpPage: React.FC = () => {
       const newIndex = servers.findIndex((s) => s.id === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
+        const previousServers = servers;
         const newServers = arrayMove(servers, oldIndex, newIndex);
         setServers(newServers);
         const ids = newServers.map((s) => s.id);
-        await reorderServers(ids);
+        try {
+          await reorderServers(ids);
+        } catch {
+          // 后端排序失败：回滚乐观更新（错误提示由 reorderServers 统一弹出），
+          // 同时吞掉 rethrow，避免 dnd-kit onDragEnd 产生 unhandled rejection
+          setServers(previousServers);
+        }
       }
     },
     [servers, setServers, reorderServers]
@@ -648,14 +652,6 @@ const McpPage: React.FC = () => {
 
   return (
     <div className={styles.mcpPage}>
-      <button
-        type="button"
-        className={styles.backToPi}
-        onClick={() => navigate('/coding/pi')}
-      >
-        <ArrowLeftOutlined aria-hidden="true" />
-        {t('common.backToPi')}
-      </button>
       <div className={styles.pageHeader}>
         <div className={styles.titleBlock}>
           <div className={styles.titleRow}>

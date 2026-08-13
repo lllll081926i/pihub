@@ -4,7 +4,6 @@ import {
   Modal,
   message,
 } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
 import {
   ChevronsDown,
   ChevronsUp,
@@ -28,7 +27,6 @@ import {
 } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import {
   ManagementButton,
   ManagementIconButton,
@@ -211,7 +209,6 @@ const ToolbarActionItem: React.FC<ToolbarActionItemProps> = ({ icon, title, desc
 
 const SkillsPage: React.FC = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const {
     isAddModalOpen,
     setAddModalOpen,
@@ -787,14 +784,6 @@ const SkillsPage: React.FC = () => {
 
   return (
     <div className={styles.skillsPage}>
-      <button
-        type="button"
-        className={styles.backToPi}
-        onClick={() => navigate('/coding/pi')}
-      >
-        <ArrowLeftOutlined aria-hidden="true" />
-        {t('common.backToPi')}
-      </button>
       <div className={styles.pageHeader}>
         <div className={styles.titleBlock}>
           <div className={styles.titleRow}>

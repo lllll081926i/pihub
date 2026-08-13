@@ -189,6 +189,7 @@ export const SkillGroupsModal: React.FC<SkillGroupsModalProps> = ({
 
           <Form
             form={form}
+            autoComplete="off"
             layout="horizontal"
             labelCol={{ flex: '108px' }}
             wrapperCol={{ flex: 'auto' }}

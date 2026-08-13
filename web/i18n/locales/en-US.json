@@ -172,7 +172,6 @@
       "retryResolve": "Retry",
       "searchPlaceholder": "Search by name, domain, or model"
     },
-    "backToPi": "Back to Pi",
     "collapse": "Collapse",
     "expandMore": "Expand more ({{count}})",
     "more": "More",
@@ -1167,6 +1166,30 @@
     },
     "other": {
       "title": "Other"
+    },
+    "checkup": {
+      "button": "Checkup",
+      "title": "Provider checkup",
+      "checking": "Checking provider configurations…",
+      "empty": "No providers with a service address to check",
+      "allGood": "All provider addresses look healthy — nothing to fix",
+      "fixableHint": "{count} provider address(es) are missing a version suffix, which can cause 404 errors — auto fix is available",
+      "recheck": "Re-check",
+      "repair": "Auto fix",
+      "repaired": "Repaired {count} provider address(es)",
+      "nothingToRepair": "Nothing to auto-repair",
+      "suggested": "Suggested",
+      "suggestedOk": "Reachable after fix",
+      "status": {
+        "ok": "OK",
+        "auth": "Auth failed",
+        "not_found": "404 not found",
+        "http_error": "HTTP error",
+        "unreachable": "Unreachable",
+        "skipped": "Skipped"
+      },
+      "failed": "Checkup failed, please retry",
+      "suggestedFailed": "Suggested address also unreachable"
     }
   },
   "magicContext": {
@@ -1248,7 +1271,11 @@
     "range7": "7 days",
     "range30": "30 days",
     "range90": "90 days",
-    "rangeAll": "All"
+    "rangeAll": "All",
+    "trendChart": "Usage Trend",
+    "modelShare": "Model Share",
+    "dailyComposition": "Daily Composition",
+    "otherModels": "Other"
   },
   "piModels": {
     "fetchModels": {
@@ -1283,8 +1310,6 @@
       "invalidVariants": "Invalid variant JSON",
       "modalitiesBothRequired": "Both input and output modalities required",
       "limitsBothRequired": "Both limits required or both empty",
-      "selectPreset": "Select Preset Model",
-      "otherPresets": "Other Models",
       "inputModalities": "Input Modalities",
       "inputModalitiesPlaceholder": "e.g. text",
       "outputModalities": "Output Modalities",

@@ -235,7 +235,7 @@ export const McpSettingsModal: React.FC<McpSettingsModalProps> = ({
         >
           <div style={{ marginBottom: 16 }}>
             <p>{t('mcp.clearAll.modalMessage', { count: servers.length })}</p>
-            <p style={{ color: '#ff4d4f', fontWeight: 500 }}>
+            <p style={{ color: 'var(--color-status-error)', fontWeight: 500 }}>
               {t('mcp.clearAll.modalWarning')}
             </p>
           </div>

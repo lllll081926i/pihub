@@ -408,7 +408,7 @@ const SessionDetailPage: React.FC<SessionDetailPageProps> = ({ tool }) => {
         }}
         destroyOnHidden
       >
-        <Form form={renameForm} layout="horizontal" labelCol={{ span: 5 }} wrapperCol={{ span: 19 }}>
+        <Form form={renameForm} autoComplete="off" layout="horizontal" labelCol={{ span: 5 }} wrapperCol={{ span: 19 }}>
           <Form.Item
             label={t('sessionManager.renameField')}
             name="title"

@@ -70,6 +70,32 @@ test('normalizeProviderBaseUrl does not rewrite non-OpenAI-compatible apis', () 
   );
 });
 
+test('normalizeProviderBaseUrl appends /v1 for anthropic-messages', () => {
+  assert.equal(
+    normalizeProviderBaseUrl('https://api.anthropic.com', 'anthropic-messages'),
+    'https://api.anthropic.com/v1',
+  );
+  assert.equal(
+    normalizeProviderBaseUrl('https://api.anthropic.com/v1', 'anthropic-messages'),
+    'https://api.anthropic.com/v1',
+  );
+});
+
+test('normalizeProviderBaseUrl appends /v1beta for google apis', () => {
+  assert.equal(
+    normalizeProviderBaseUrl('https://generativelanguage.googleapis.com', 'google-generative-ai'),
+    'https://generativelanguage.googleapis.com/v1beta',
+  );
+  assert.equal(
+    normalizeProviderBaseUrl('https://example.com', 'google-vertex'),
+    'https://example.com/v1beta',
+  );
+  assert.equal(
+    normalizeProviderBaseUrl('https://generativelanguage.googleapis.com/v1beta', 'google-generative-ai'),
+    'https://generativelanguage.googleapis.com/v1beta',
+  );
+});
+
 test('normalizeProviderBaseUrl leaves empty and non-http urls unchanged', () => {
   assert.equal(normalizeProviderBaseUrl(''), '');
   assert.equal(normalizeProviderBaseUrl('   '), '');
@@ -90,5 +116,16 @@ test('normalizeProviderBaseUrl keeps query strings outside the appended suffix',
   assert.equal(
     normalizeProviderBaseUrl('https://api.example.com/models?alt=json'),
     'https://api.example.com/models?alt=json',
+  );
+});
+
+test('normalizeProviderBaseUrl keeps fragments after the appended suffix', () => {
+  assert.equal(
+    normalizeProviderBaseUrl('https://api.example.com#frag'),
+    'https://api.example.com/v1#frag',
+  );
+  assert.equal(
+    normalizeProviderBaseUrl('https://api.example.com/v1?token=x#frag'),
+    'https://api.example.com/v1?token=x#frag',
   );
 });

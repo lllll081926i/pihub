@@ -58,13 +58,9 @@
   font-size: 11px;
   margin-left: 8px;
   padding: 2px 6px;
-  background: #fff2e8;
-  color: #fa541c;
+  background: var(--color-status-warning-bg);
+  color: var(--color-status-warning);
   border-radius: 4px;
-
-  :global([data-theme="dark"]) & {
-    background: rgba(250, 84, 28, 0.15);
-  }
 }
 
 .variantTool {
@@ -88,7 +84,7 @@
   }
 
   &.selected {
-    background: rgba(24, 144, 255, 0.04);
+    background: var(--color-bg-selected);
   }
 }
 

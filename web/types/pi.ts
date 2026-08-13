@@ -77,6 +77,36 @@ export interface PiModelsProviderInput {
   provider: Record<string, unknown>;
 }
 
+export type PiProviderProbeStatus = 'ok' | 'auth' | 'not_found' | 'http_error' | 'unreachable' | 'skipped';
+
+export interface PiProviderCheckupItem {
+  providerKey: string;
+  displayName: string;
+  api?: string | null;
+  baseUrl: string;
+  suggestedBaseUrl?: string | null;
+  probeStatus: PiProviderProbeStatus;
+  probeDetail?: string | null;
+  suggestedProbeOk: boolean;
+}
+
+export interface PiProviderCheckupReport {
+  items: PiProviderCheckupItem[];
+  fixableCount: number;
+  probed: boolean;
+}
+
+export interface PiProviderRepairedItem {
+  providerKey: string;
+  before: string;
+  after: string;
+}
+
+export interface PiProviderRepairResult {
+  repaired: PiProviderRepairedItem[];
+  config: PiRuntimeConfig;
+}
+
 export type PiExtensionScope = 'user' | 'project' | 'unknown';
 export type PiExtensionKind = 'package' | 'local_file' | 'local_directory';
 

@@ -39,6 +39,8 @@ sequenceDiagram
 ## 易错点与历史坑（Gotchas）
 
 - 不要把工具配置文件当作 MCP 的 source of truth。真正要改的是中心存储，再同步下发。
+- 同步链路的文件 I/O 必须走 `coding::file_io` 的 async 封装（`read_to_string_async` / `write_all_atomic_async`）：config_path 可能是 WSL UNC 路径，裸 `std::fs` 会在 tokio worker 上无限期阻塞。读取用 NotFound→空配置，不做 exists() 预检（TOCTOU）。
+- 写工具配置文件一律原子写（临时文件 + rename），避免崩溃截断用户整个配置；`remove_server_from_json/toml` 在实际未删除任何条目时直接返回，不回写——json5 只解析不序列化，no-op 回写会白白抹掉用户 JSONC 的注释和排版。
 - 改同步逻辑时要同时考虑“启用工具集合变化”“删除时清理工具配置”三类路径，不要只修新增路径。
 - WSL 自动同步依赖 `mcp-changed` 事件；如果只更新数据库、不发事件，WSL 侧不会跟进。
 - 不要把恢复专用 no-event 入口复用到普通 CRUD/手动同步路径；它只用于已有外层编排明确负责最终 WSL 投影的场景。

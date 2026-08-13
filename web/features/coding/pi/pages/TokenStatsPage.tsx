@@ -18,9 +18,21 @@ import { useTranslation } from 'react-i18next';
 
 import { getTokenStats, refreshTokenStats, type TokenStatsResult } from '@/services/tokenStatsApi';
 import { useCountUp } from '@/hooks/useCountUp';
+import { formatCompactNumber } from '../utils/formatNumber';
 import styles from './TokenStatsPage.module.less';
 
 const { Title, Text } = Typography;
+
+// ECharts lives in a lazily loaded chunk (all three share the same module).
+const TrendChart = React.lazy(() =>
+  import('../components/charts/TokenStatsCharts').then((module) => ({ default: module.TrendChart })),
+);
+const ModelShareChart = React.lazy(() =>
+  import('../components/charts/TokenStatsCharts').then((module) => ({ default: module.ModelShareChart })),
+);
+const DailyCompositionChart = React.lazy(() =>
+  import('../components/charts/TokenStatsCharts').then((module) => ({ default: module.DailyCompositionChart })),
+);
 
 /**
  * Module-level cache so switching away from the token stats page and back
@@ -29,12 +41,7 @@ const { Title, Text } = Typography;
  */
 let TOKEN_STATS_CACHE: TokenStatsResult | null = null;
 
-const formatNumber = (value: number): string => {
-  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return String(value);
-};
+const formatNumber = formatCompactNumber;
 
 const formatCost = (value: number): string => `$${value.toFixed(4)}`;
 
@@ -55,7 +62,12 @@ const KpiItem: React.FC<KpiItemProps> = ({ icon, label, value, count, formatter,
   const displayValue = count !== undefined ? (formatter ?? formatNumber)(animatedCount) : value;
   return (
     <div className={styles.kpiItem}>
-      <span className={styles.kpiIcon} style={{ color: accent }}>{icon}</span>
+      <span
+        className={styles.kpiIcon}
+        style={{ color: accent, background: `color-mix(in srgb, ${accent} 12%, transparent)` }}
+      >
+        {icon}
+      </span>
       <div className={styles.kpiBody}>
         <Text className={styles.kpiLabel}>{label}</Text>
         <Text className={styles.kpiValue}>{displayValue}</Text>
@@ -82,7 +94,12 @@ const SubKpiItem: React.FC<SubKpiItemProps> = ({ icon, label, value, count, form
   const displayValue = count !== undefined ? (formatter ?? formatNumber)(animatedCount) : value;
   return (
     <div className={styles.subKpiItem}>
-      <span className={styles.subKpiIcon} style={{ color: accent }}>{icon}</span>
+      <span
+        className={styles.subKpiIcon}
+        style={{ color: accent, background: `color-mix(in srgb, ${accent} 12%, transparent)` }}
+      >
+        {icon}
+      </span>
       <div className={styles.subKpiBody}>
         <Text className={styles.subKpiLabel}>{label}</Text>
         <Text className={styles.subKpiValue}>{displayValue}</Text>
@@ -147,7 +164,9 @@ const TokenStatsPage: React.FC = () => {
 
   const sortedModels = React.useMemo(() => {
     if (!data?.models.length) return [];
-    return [...data.models].sort((a, b) => (b.inputTokens + b.outputTokens) - (a.inputTokens + a.outputTokens));
+    const total = (m: (typeof data.models)[number]) =>
+      m.inputTokens + m.outputTokens + m.cacheWriteTokens + m.cacheReadTokens;
+    return [...data.models].sort((a, b) => total(b) - total(a));
   }, [data]);
 
   const tabOptions = [
@@ -360,6 +379,33 @@ const TokenStatsPage: React.FC = () => {
             </div>
           </Card>
 
+          {/* 图表区：趋势 + 占比 + 每日构成（ECharts 懒加载 chunk） */}
+          {data.days.length > 0 && (
+            <>
+              <Card
+                className={styles.chartCard}
+                size="small"
+                title={t('tokenStats.trendChart')}
+              >
+                <React.Suspense fallback={<Skeleton type="chart" />}>
+                  <TrendChart days={visibleDays} />
+                </React.Suspense>
+              </Card>
+              <div className={styles.chartsRow}>
+                <Card className={styles.chartCard} size="small" title={t('tokenStats.modelShare')}>
+                  <React.Suspense fallback={<Skeleton type="chart" />}>
+                    <ModelShareChart models={sortedModels} />
+                  </React.Suspense>
+                </Card>
+                <Card className={styles.chartCard} size="small" title={t('tokenStats.dailyComposition')}>
+                  <React.Suspense fallback={<Skeleton type="chart" />}>
+                    <DailyCompositionChart days={visibleDays.slice(-60)} />
+                  </React.Suspense>
+                </Card>
+              </div>
+            </>
+          )}
+
           {/* 详细数据 Tab 切换 */}
           <Card className={styles.detailCard} size="small">
             <div className={styles.detailHeader}>
@@ -369,7 +415,7 @@ const TokenStatsPage: React.FC = () => {
                 onChange={(value) => setActiveTab(value as DetailTab)}
               />
               <Segmented
-                className={styles.rangeSegmented}
+                size="small"
                 options={rangeOptions}
                 value={detailRange}
                 onChange={(value) => setDetailRange(value as DetailRange)}

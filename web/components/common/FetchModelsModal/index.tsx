@@ -62,9 +62,19 @@ const FetchModelsModal: React.FC<FetchModelsModalProps> = ({
     }
   }, [calculatedUrl, urlManuallyEdited]);
 
-  // Reset state when modal opens
+  // Reset state when the modal transitions to open. Tracked via a ref so that
+  // changing apiType while open (which changes calculatedUrl) does NOT wipe
+  // already-fetched results, selections, or the manually edited URL.
+  const prevOpenRef = React.useRef(false);
   React.useEffect(() => {
-    if (open) {
+    const justOpened = open && !prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (justOpened) {
+      // apiType must be re-derived from the CURRENT sdkType: the modal
+      // component is not unmounted between providers, so the useState
+      // initializer only ran for the first provider.
+      const initialApiType: ApiType = supportsNative ? 'native' : 'openai_compat';
+      setApiType(initialApiType);
       setModels([]);
       setSelectedRowKeys([]);
       setError(null);
@@ -72,10 +82,10 @@ const FetchModelsModal: React.FC<FetchModelsModalProps> = ({
       setSearchText('');
       setRemoveMissingModels(false);
       setUrlManuallyEdited(false);
-      // Reset custom URL to calculated default
-      setCustomUrl(calculatedUrl);
+      // Reset custom URL to calculated default for the fresh apiType
+      setCustomUrl(buildFetchModelsUrl(baseUrl, initialApiType, sdkType, apiKey));
     }
-  }, [open, calculatedUrl]);
+  }, [open, supportsNative, baseUrl, sdkType, apiKey]);
 
   // Fetch models from provider API
   const handleFetch = async () => {

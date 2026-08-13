@@ -183,6 +183,22 @@ fn set_window_background_color(window: tauri::Window, r: u8, g: u8, b: u8) -> Re
         .map_err(|e| format!("Failed to set background color: {}", e))
 }
 
+/// Set native window theme so the OS title bar follows the app theme
+/// (Windows: DWM immersive dark mode; macOS/Linux: native dark light chrome).
+/// `theme`: "dark" | "light" | null (follow system).
+#[tauri::command]
+fn set_window_theme(window: tauri::Window, theme: Option<String>) -> Result<(), String> {
+    let resolved = match theme.as_deref() {
+        Some("dark") => Some(tauri::Theme::Dark),
+        Some("light") => Some(tauri::Theme::Light),
+        Some("system") | None => None,
+        Some(other) => return Err(format!("Unknown window theme: {other}")),
+    };
+    window
+        .set_theme(resolved)
+        .map_err(|e| format!("Failed to set window theme: {}", e))
+}
+
 /// Open a folder in the system file manager
 /// If the path is a file, opens the parent directory
 /// Creates the directory if it doesn't exist
@@ -1244,7 +1260,7 @@ pub fn run() {
                     match settings::store::load_settings_from_sqlite_state(&sqlite_state) {
                         Ok(settings) => {
                             if settings.launch_on_startup {
-                                let _ = auto_launch::enable_auto_launch();
+                                let _ = auto_launch::re_register_auto_launch();
                             }
                             settings.start_minimized
                         }
@@ -1462,6 +1478,7 @@ pub fn run() {
             open_folder,
             open_existing_folder,
             set_window_background_color,
+            set_window_theme,
             // Update
             update::check_for_updates,
             update::install_update,
@@ -1508,6 +1525,8 @@ pub fn run() {
             coding::pi::save_pi_auth_provider,
             coding::pi::save_pi_models_provider,
             coding::pi::delete_pi_runtime_provider,
+            coding::pi::check_pi_providers,
+            coding::pi::repair_pi_providers,
             coding::pi::list_pi_extensions,
             coding::pi::refresh_pi_extensions,
             coding::pi::fetch_provider_models,

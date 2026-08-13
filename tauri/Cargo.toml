@@ -1,6 +1,6 @@
 [package]
 name = "pihub"
-version = "1.3.0"
+version = "1.4.0"
 description = "PiHub - Personal AI Tools Collection"
 authors = ["you"]
 edition = "2021"

@@ -95,6 +95,7 @@ export const SkillMetadataModal: React.FC<SkillMetadataModalProps> = ({
             <div className={styles.skillName}>{skill.name}</div>
           </div>
           <span className={`${styles.groupPreview}${currentGroup ? '' : ` ${styles.emptyGroup}`}`}>
+          autoComplete="off"
             {currentGroup ?? t('skills.groupUngrouped')}
           </span>
         </section>

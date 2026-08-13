@@ -31,10 +31,12 @@ import {
   testProxyConnection,
   type AppSettings,
 } from '@/services/settingsApi';
+import type { Language } from '@/i18n';
 import { clearTokenStatsCache } from '@/services/tokenStatsApi';
 import { exportDatabaseBackup, importDatabaseBackup } from '@/services/backupApi';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '@/stores';
+import { useAppStore } from '@/stores/appStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useUpdateManager } from '@/hooks/useUpdateManager';
 import pkg from '../../../package.json';
@@ -142,6 +144,8 @@ const SettingsPage: React.FC = () => {
         sidebar_hidden_by_page: loaded?.sidebar_hidden_by_page ?? { pi: false },
       });
       setMode(appSettings.theme);
+      // 语言保存后立即同步到全局 store，界面无需重启即可切换语言
+      useAppStore.setState({ language: appSettings.language as Language });
       await initSettings();
       message.success(t('common.success'));
     } catch (error) {

@@ -32,6 +32,11 @@
 
 .pathToolbar {
   max-width: 100%;
+  width: fit-content;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 .pathLabel,
@@ -237,4 +242,34 @@
   .modalGrid {
     grid-template-columns: 1fr;
   }
+}
+
+.checkupList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.checkupItem {
+  border: 1px solid var(--color-border-secondary);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--color-bg-container);
+}
+.checkupItemHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.checkupUrl {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+.checkupSuggested {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  word-break: break-all;
 }

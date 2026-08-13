@@ -192,7 +192,7 @@ const RootDirectoryModal: React.FC<RootDirectoryModalProps> = ({
           </div>
         ) : null}
 
-        <Form form={form} layout="vertical">
+        <Form form={form} layout="vertical" autoComplete="off">
           <Form.Item name="customPath" label={customPathLabel}>
             <Input
               placeholder={placeholder}

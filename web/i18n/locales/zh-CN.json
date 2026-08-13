@@ -172,7 +172,6 @@
       "retryResolve": "点击重试",
       "searchPlaceholder": "搜索名称、域名或模型"
     },
-    "backToPi": "返回 Pi",
     "collapse": "收起",
     "expandMore": "展开更多 ({{count}})",
     "more": "更多",
@@ -1164,6 +1163,30 @@
     },
     "other": {
       "title": "其它"
+    },
+    "checkup": {
+      "button": "体检",
+      "title": "供应商体检",
+      "checking": "正在检测供应商配置…",
+      "empty": "没有带服务地址的供应商需要检测",
+      "allGood": "所有供应商地址均正常，无需修复",
+      "fixableHint": "发现 {count} 个供应商的地址缺少版本后缀，可能导致请求 404，可一键修复",
+      "recheck": "重新检测",
+      "repair": "一键修复",
+      "repaired": "已修复 {count} 个供应商地址",
+      "nothingToRepair": "没有可自动修复的问题",
+      "suggested": "建议改为",
+      "suggestedOk": "修复后可正常访问",
+      "status": {
+        "ok": "正常",
+        "auth": "凭证无效",
+        "not_found": "404 地址错误",
+        "http_error": "HTTP 错误",
+        "unreachable": "无法连接",
+        "skipped": "未检测"
+      },
+      "failed": "体检失败，请重试",
+      "suggestedFailed": "建议地址也无法连通"
     }
   },
   "magicContext": {
@@ -1245,7 +1268,11 @@
     "range7": "近 7 天",
     "range30": "近 30 天",
     "range90": "近 90 天",
-    "rangeAll": "全部"
+    "rangeAll": "全部",
+    "trendChart": "用量趋势",
+    "modelShare": "模型占比",
+    "dailyComposition": "每日构成",
+    "otherModels": "其他"
   },
   "piModels": {
     "fetchModels": {
@@ -1280,8 +1307,6 @@
       "invalidVariants": "扩展配置 JSON 格式错误",
       "modalitiesBothRequired": "输入和输出模态都需要填写",
       "limitsBothRequired": "上下文和输出限制都需要填写或都留空",
-      "selectPreset": "选择预设模型",
-      "otherPresets": "其他模型",
       "inputModalities": "输入模态",
       "inputModalitiesPlaceholder": "例如：text",
       "outputModalities": "输出模态",

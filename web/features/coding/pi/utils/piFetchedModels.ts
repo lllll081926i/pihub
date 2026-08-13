@@ -80,6 +80,8 @@ export const buildFetchedPiModel = (
   return {
     id: fetchedModel.id,
     ...(fetchedModel.name ? { name: fetchedModel.name } : {}),
+    // 未匹配预设（即未手动选择）的模型默认 256k 上下文
+    contextWindow: 256000,
   };
 };
 

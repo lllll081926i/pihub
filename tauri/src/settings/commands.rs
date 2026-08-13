@@ -30,14 +30,34 @@ pub async fn save_settings(
 
 /// Set auto launch on startup
 #[tauri::command]
-pub fn set_auto_launch(enabled: bool) -> Result<(), String> {
-    if enabled {
-        auto_launch::enable_auto_launch()
-            .map_err(|e| format!("Failed to enable auto launch: {}", e))
-    } else {
-        auto_launch::disable_auto_launch()
-            .map_err(|e| format!("Failed to disable auto launch: {}", e))
+pub async fn set_auto_launch(
+    sqlite_state: tauri::State<'_, SqliteDbState>,
+    enabled: bool,
+) -> Result<(), String> {
+    // Persist the DB flag FIRST: the startup re-register task in lib.rs
+    // replays the DB value into the registry, so the DB must already hold the
+    // new value before the registry is touched. A later registry failure then
+    // self-heals on next launch instead of resurrecting a stale entry.
+    let mut settings = store::load_settings_from_sqlite_state(&sqlite_state)?;
+    if settings.launch_on_startup != enabled {
+        settings.launch_on_startup = enabled;
+        store::save_settings_to_sqlite_state(&sqlite_state, &settings)?;
     }
+
+    // Registry mutations block on `reg` CLI calls; keep them off the tokio
+    // worker threads.
+    tokio::task::spawn_blocking(move || {
+        if enabled {
+            auto_launch::enable_auto_launch()
+                .map_err(|e| format!("Failed to enable auto launch: {}", e))
+        } else {
+            auto_launch::disable_auto_launch()
+                .map_err(|e| format!("Failed to disable auto launch: {}", e))
+        }
+    })
+    .await
+    .map_err(|e| format!("Auto launch task failed: {e}"))??;
+    Ok(())
 }
 
 /// Get the application data directory (exe sibling `data/` folder).

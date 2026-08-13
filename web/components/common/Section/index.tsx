@@ -51,22 +51,29 @@ const Section: React.FC<SectionProps> = ({
   );
 
   React.useEffect(() => {
-    if (collapsible && contentRef.current) {
-      if (expanded) {
-        const height = contentRef.current.scrollHeight;
-        setContentHeight(height);
-        // 动画结束后清除固定高度，让内容自然流动
-        const timer = setTimeout(() => setContentHeight(undefined), 200);
-        return () => clearTimeout(timer);
-      } else {
-        // 先设置当前高度，再过渡到 0
-        const height = contentRef.current.scrollHeight;
-        setContentHeight(height);
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => setContentHeight(0));
-        });
-      }
+    if (!collapsible || !contentRef.current) {
+      return undefined;
     }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let rafId: number | undefined;
+    if (expanded) {
+      const height = contentRef.current.scrollHeight;
+      setContentHeight(height);
+      // 动画结束后清除固定高度，让内容自然流动
+      timer = setTimeout(() => setContentHeight(undefined), 200);
+    } else {
+      // 先设置当前高度，再过渡到 0
+      const height = contentRef.current.scrollHeight;
+      setContentHeight(height);
+      rafId = requestAnimationFrame(() => {
+        rafId = requestAnimationFrame(() => setContentHeight(0));
+      });
+    }
+    // 取消未执行的 timer/rAF：快速收起→展开不会把展开态高度误写为 0
+    return () => {
+      if (timer !== undefined) clearTimeout(timer);
+      if (rafId !== undefined) cancelAnimationFrame(rafId);
+    };
   }, [expanded, collapsible]);
 
   const handleToggle = () => {

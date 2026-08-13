@@ -18,59 +18,63 @@ interface NavEntry {
   icon: React.ReactNode;
 }
 
+// 导航项是静态配置：定义在组件外，避免每次渲染产生新数组引用
+const NAV_ENTRIES: NavEntry[] = [
+  {
+    key: 'pi',
+    path: '/coding/pi',
+    labelKey: 'subModules.pi',
+    icon: <img src={PiIcon} alt="Pi" className={styles.navIcon} />,
+  },
+  {
+    key: 'extensions',
+    path: '/coding/pi/extensions',
+    labelKey: 'pi.extensions.title',
+    icon: <Puzzle className={styles.navIcon} size={20} />,
+  },
+  {
+    key: 'other',
+    path: '/coding/pi/other',
+    labelKey: 'pi.other.title',
+    icon: <SlidersHorizontal className={styles.navIcon} size={20} />,
+  },
+  {
+    key: 'skills',
+    path: '/skills',
+    labelKey: 'skills.tooltip',
+    icon: <Sparkles className={styles.navIcon} size={20} />,
+  },
+  {
+    key: 'mcp',
+    path: '/mcp',
+    labelKey: 'mcp.tooltip',
+    icon: <MCP className={styles.navIcon} size={20} />,
+  },
+  {
+    key: 'tokenStats',
+    path: '/token-stats',
+    labelKey: 'tokenStats.title',
+    icon: <BarChart3 className={styles.navIcon} size={20} />,
+  },
+];
+
+const NAV_BOTTOM_ENTRIES: NavEntry[] = [
+  {
+    key: 'settings',
+    path: '/settings',
+    labelKey: 'settings.title',
+    icon: <Settings className={styles.navIcon} size={20} />,
+  },
+];
+
 const AppSidebar: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { mode, setMode } = useThemeStore();
 
-  const entries: NavEntry[] = [
-    {
-      key: 'pi',
-      path: '/coding/pi',
-      labelKey: 'subModules.pi',
-      icon: <img src={PiIcon} alt="Pi" className={styles.navIcon} />,
-    },
-    {
-      key: 'extensions',
-      path: '/coding/pi/extensions',
-      labelKey: 'pi.extensions.title',
-      icon: <Puzzle className={styles.navIcon} size={20} />,
-    },
-    {
-      key: 'other',
-      path: '/coding/pi/other',
-      labelKey: 'pi.other.title',
-      icon: <SlidersHorizontal className={styles.navIcon} size={20} />,
-    },
-    {
-      key: 'skills',
-      path: '/skills',
-      labelKey: 'skills.tooltip',
-      icon: <Sparkles className={styles.navIcon} size={20} />,
-    },
-    {
-      key: 'mcp',
-      path: '/mcp',
-      labelKey: 'mcp.tooltip',
-      icon: <MCP className={styles.navIcon} size={20} />,
-    },
-    {
-      key: 'tokenStats',
-      path: '/token-stats',
-      labelKey: 'tokenStats.title',
-      icon: <BarChart3 className={styles.navIcon} size={20} />,
-    },
-  ];
-
-  const bottomEntries: NavEntry[] = [
-    {
-      key: 'settings',
-      path: '/settings',
-      labelKey: 'settings.title',
-      icon: <Settings className={styles.navIcon} size={20} />,
-    },
-  ];
+  const entries = NAV_ENTRIES;
+  const bottomEntries = NAV_BOTTOM_ENTRIES;
 
   const activeKey = React.useMemo(() => {
     const allEntries = [...entries, ...bottomEntries];

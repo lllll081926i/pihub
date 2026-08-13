@@ -4,7 +4,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { useTranslation } from 'react-i18next';
 import * as api from '../services/skillsApi';
-import { useSkills } from './useSkills';
+import { useSkillsStore } from '../stores/skillsStore';
 import type { ManagedSkill, ToolOption } from '../types';
 import { parseTargetExistsError, showGitError, confirmTargetOverwrite } from '../utils/errorHandlers';
 import { shouldOverwriteExistingTarget, type BatchToolOptions } from '../utils/batchToolOptions';
@@ -51,7 +51,26 @@ export interface UseSkillActionsResult {
 
 export function useSkillActions({ allTools }: UseSkillActionsOptions): UseSkillActionsResult {
   const { t } = useTranslation();
-  const { skills, refresh, updateSkill, deleteSkill, setSkills } = useSkills();
+  // 直接访问 store：调用 useSkills() 会重复注册 skills-changed 监听，
+  // 导致托盘刷新事件触发两次 loadSkills。updateSkill/deleteSkill 原为
+  // useSkills 的薄封装（api 调用 + 重新加载），此处内联等价实现。
+  const { skills, refresh, setSkills, loadSkills } = useSkillsStore();
+
+  const updateSkill = React.useCallback(
+    async (skill: ManagedSkill) => {
+      await api.updateManagedSkill(skill.id);
+      await loadSkills();
+    },
+    [loadSkills],
+  );
+
+  const deleteSkill = React.useCallback(
+    async (skillId: string) => {
+      await api.deleteManagedSkill(skillId);
+      await loadSkills();
+    },
+    [loadSkills],
+  );
 
   const [deleteSkillId, setDeleteSkillId] = React.useState<string | null>(null);
   const [batchDeleteIds, setBatchDeleteIds] = React.useState<string[]>([]);

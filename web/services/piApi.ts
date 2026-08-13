@@ -9,6 +9,8 @@ import type {
   PiDeleteScope,
   PiModelSettingsInput,
   PiModelsProviderInput,
+  PiProviderCheckupReport,
+  PiProviderRepairResult,
   PiRuntimeConfig,
   PiSettingsConfig,
   PiSettingsConfigInput,
@@ -57,6 +59,14 @@ export const deletePiRuntimeProvider = async (
   scope: PiDeleteScope,
 ): Promise<PiRuntimeConfig> => {
   return await invoke<PiRuntimeConfig>('delete_pi_runtime_provider', { providerKey, scope });
+};
+
+export const checkPiProviders = async (probe: boolean): Promise<PiProviderCheckupReport> => {
+  return await invoke<PiProviderCheckupReport>('check_pi_providers', { probe });
+};
+
+export const repairPiProviders = async (providerKeys?: string[]): Promise<PiProviderRepairResult> => {
+  return await invoke<PiProviderRepairResult>('repair_pi_providers', { providerKeys: providerKeys ?? null });
 };
 
 export const listPiExtensions = async (): Promise<PiExtensionListResult> => {

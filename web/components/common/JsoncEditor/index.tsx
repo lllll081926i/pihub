@@ -56,6 +56,13 @@ const JsoncEditor: React.FC<JsoncEditorProps> = ({
   const isUserEditingRef = useRef(false);
   const [editorContent, setEditorContent] = useState(value);
   const [isUserEditing, setIsUserEditing] = useState(false);
+
+  // blur 回调用 ref 持有最新版本：editorDidMount 只触发一次，
+  // 直接捕获 props 回调会永远是首次渲染的过期闭包
+  const onBlurRef = useRef(onBlur);
+  useEffect(() => {
+    onBlurRef.current = onBlur;
+  }, [onBlur]);
   const initialHeight = typeof height === 'number' ? height : parseInt(height, 10) || 320;
   const [currentHeight, setCurrentHeight] = useState(initialHeight);
   const isResizingRef = useRef(false);
@@ -104,9 +111,9 @@ const JsoncEditor: React.FC<JsoncEditorProps> = ({
       editorInstance.updateOptions({ renderLineHighlight: 'none' });
       const currentContent = editorInstance.getValue();
       const result = validateAndSetMarkers(currentContent);
-      onBlur?.(currentContent, result.isValid, result.parsed);
+      onBlurRef.current?.(currentContent, result.isValid, result.parsed);
     });
-  }, [onBlur, validateAndSetMarkers, value]);
+  }, [validateAndSetMarkers, value]);
 
   const handleChange = useCallback((nextValue: string) => {
     editorContentRef.current = nextValue;
@@ -178,8 +185,8 @@ const JsoncEditor: React.FC<JsoncEditorProps> = ({
 
   const actualHeight = resizable ? currentHeight : height;
   const monacoTheme = resolvedTheme === 'dark' ? 'vs-dark' : 'vs';
-  const borderColor = resolvedTheme === 'dark' ? 'var(--color-border-secondary)' : '#d9d9d9';
-  const placeholderColor = resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.45)' : '#999';
+  const borderColor = 'var(--color-border-secondary)';
+  const placeholderColor = 'var(--color-text-tertiary)';
   const showPlaceholder = placeholder && editorContent.trim() === '';
 
   const options: editor.IStandaloneEditorConstructionOptions = {

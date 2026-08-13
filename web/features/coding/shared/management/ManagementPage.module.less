@@ -6,41 +6,13 @@
   gap: var(--space-sm);
 }
 
-.backToPi {
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  gap: 5px;
-  padding: 3px 8px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1.5;
-  transition:
-    color var(--duration-fast) var(--ease-out-quart),
-    background var(--duration-fast) var(--ease-out-quart);
-
-  &:hover,
-  &:focus-visible {
-    background: var(--color-bg-hover);
-    color: var(--color-text-primary);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-border-secondary);
-    outline-offset: 1px;
-  }
-}
-
 .pageHeader {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--space-lg);
   padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .titleBlock {

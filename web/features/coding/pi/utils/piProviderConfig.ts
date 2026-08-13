@@ -117,39 +117,53 @@ export const setOptionalStringField = (
   }
 };
 
+const VERSION_SEGMENT_RE = /(?:^|\/)v\d+(?:\.\d+)?(?:beta)?$/i;
+
+/** Default version suffix per Pi api type; mirrors the backend `pi/provider_url.rs`. */
+const defaultVersionSuffix = (api?: string): string | null => {
+  if (api === 'google-generative-ai' || api === 'google-vertex') {
+    return '/v1beta';
+  }
+  // OpenAI 兼容与 anthropic-messages 都服务在 /v1 下
+  if (!api || api === 'openai-completions' || api === 'openai-responses'
+    || api === 'openai-chat' || api === 'anthropic-messages') {
+    return '/v1';
+  }
+  return null;
+};
+
 /**
- * 自动补全供应商服务地址：OpenAI 兼容接口的 baseUrl 缺少 `/v1` 后缀时自动追加。
+ * 自动补全供应商服务地址：baseUrl 缺少版本后缀时按 api 类型自动追加
+ * （OpenAI 兼容 / Anthropic → `/v1`，Google → `/v1beta`）。
  *
- * - 仅对 `openai-completions` / `openai-responses` / `openai-chat` 这类 OpenAI 兼容 API 生效；
  * - 地址为空、已含版本段（如 `/v1`、`/v1beta`、`/api/v1`、`/v1.5`）、已含完整 `/models`
- *   路径（用户粘贴完整地址）或非 http(s) 地址时不改写；
- * - 同时处理尾斜杠，避免写成 `https://host/v1/`。
+ *   路径（用户粘贴完整地址）或非 http(s) 地址时不改写；幂等，不会重复追加；
+ * - 同时处理尾斜杠，避免写成 `https://host/v1/`；query 保留在后缀之后。
  */
 export const normalizeProviderBaseUrl = (baseUrl: string, api?: string): string => {
   const trimmed = baseUrl.trim();
   if (!trimmed) {
     return trimmed;
   }
-  const isOpenAiCompat = !api
-    || api === 'openai-completions'
-    || api === 'openai-responses'
-    || api === 'openai-chat';
-  if (!isOpenAiCompat || !/^https?:\/\//i.test(trimmed)) {
+  const suffix = defaultVersionSuffix(api);
+  if (!suffix || !/^https?:\/\//i.test(trimmed)) {
     return trimmed;
   }
-  // 先拆出 query，避免把后缀追加到 query 之后（如 https://host/v1?token=x/v1），
+  // 先拆出 query/fragment，避免把后缀追加到它们之后（如 https://host/v1?token=x/v1），
   // 同时只对 path 部分处理尾斜杠（query 里可能含 /）
-  const [pathPart, ...queryParts] = trimmed.split('?');
+  const [withoutFragment, ...fragmentParts] = trimmed.split('#');
+  const [pathPart, ...queryParts] = withoutFragment.split('?');
   const path = pathPart.replace(/\/+$/, '');
   const query = queryParts.length > 0 ? `?${queryParts.join('?')}` : '';
+  const fragment = fragmentParts.length > 0 ? `#${fragmentParts.join('#')}` : '';
   // 已含版本段（/v1、/v1beta、/api/v1、/v1.5 等）或完整 /models 路径时视为用户已显式指定，不再补全
-  if (/(?:^|\/)v\d+(?:\.\d+)?(?:beta)?$/i.test(path)) {
-    return `${path}${query}`;
+  if (VERSION_SEGMENT_RE.test(path)) {
+    return `${path}${query}${fragment}`;
   }
   if (/\/models$/i.test(path)) {
-    return `${path}${query}`;
+    return `${path}${query}${fragment}`;
   }
-  return `${path}/v1${query}`;
+  return `${path}${suffix}${query}${fragment}`;
 };
 
 export const isRecordEmpty = (value: Record<string, unknown>): boolean => Object.keys(value).length === 0;

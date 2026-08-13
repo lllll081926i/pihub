@@ -59,8 +59,35 @@ fn get_auto_launch() -> Result<auto_launch::AutoLaunch, AutoLaunchError> {
         .map_err(|e| AutoLaunchError::Build(e.to_string()))
 }
 
+/// Older releases registered under the legacy app name "AI Toolbox"; the
+/// auto-launch crate only manages the current app name, so the stale entry
+/// survives enable/disable and keeps launching an old exe at every login.
+#[cfg(target_os = "windows")]
+fn remove_legacy_run_entry() {
+    const LEGACY_NAME: &str = "AI Toolbox";
+    let mut command = std::process::Command::new("reg");
+    command.args([
+        "delete",
+        r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+        "/v",
+        LEGACY_NAME,
+        "/f",
+    ]);
+    crate::coding::cli_resolver::apply_create_no_window(&mut command);
+    match command.output() {
+        Ok(output) if output.status.success() => {
+            log::info!("已清理旧版开机自启条目: {LEGACY_NAME}");
+        }
+        // A missing value is the common case and reg exits non-zero for it.
+        Ok(_) => {}
+        Err(error) => log::warn!("清理旧版开机自启条目失败: {error}"),
+    }
+}
+
 /// Enable auto launch on startup
 pub fn enable_auto_launch() -> Result<(), AutoLaunchError> {
+    #[cfg(target_os = "windows")]
+    remove_legacy_run_entry();
     // Debug builds do not set `windows_subsystem = "windows"` (see main.rs), so
     // they are console apps: registering one for auto-start makes Windows open a
     // console window at login. Log a clear warning so developers do not mistake
@@ -83,8 +110,25 @@ pub fn enable_auto_launch() -> Result<(), AutoLaunchError> {
     Ok(())
 }
 
+/// Re-register auto launch at startup so the login entry follows the current
+/// exe path after updates/moves. Windows debug builds are console apps and are
+/// skipped: registering one would point the Run key at the debug exe and pop a
+/// console window at every login, hijacking any entry written by a release build.
+pub fn re_register_auto_launch() -> Result<(), AutoLaunchError> {
+    #[cfg(all(target_os = "windows", debug_assertions))]
+    {
+        remove_legacy_run_entry();
+        log::info!("Windows debug 构建跳过开机自注重注册，避免登录项指向 debug 可执行文件");
+        return Ok(());
+    }
+    #[cfg(not(all(target_os = "windows", debug_assertions)))]
+    enable_auto_launch()
+}
+
 /// Disable auto launch on startup
 pub fn disable_auto_launch() -> Result<(), AutoLaunchError> {
+    #[cfg(target_os = "windows")]
+    remove_legacy_run_entry();
     let auto_launch = get_auto_launch()?;
     auto_launch
         .disable()

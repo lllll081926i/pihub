@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   Button,
   Empty,
   Form,
@@ -8,6 +9,7 @@ import {
   Select,
   Space,
   Switch,
+  Tag,
   Tooltip,
   Typography,
   message,
@@ -21,6 +23,7 @@ import {
   PlusOutlined,
   QuestionCircleOutlined,
   RightOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
@@ -39,13 +42,17 @@ import { findPresetModelById } from '@/constants/presetModels';
 import { hasAllApiHubExtension, refreshTrayMenu } from '@/services/appApi';
 import type { AllApiHubProviderCandidate } from '@/services/providerApi';
 import {
+  checkPiProviders,
   deletePiRuntimeProvider,
+  repairPiProviders,
   savePiAuthProvider,
   savePiModelSettings,
   savePiModelsProvider,
 } from '@/services/piApi';
 import type {
   PiDeleteScope,
+  PiProviderCheckupReport,
+  PiProviderProbeStatus,
   PiRuntimeConfig,
   PiRuntimeProviderView,
 } from '@/types/pi';
@@ -76,6 +83,15 @@ import ImportFromAllApiHubModal from './ImportFromAllApiHubModal';
 import styles from '../pages/PiPage.module.less';
 
 const { Text } = Typography;
+
+const PROBE_STATUS_COLOR: Record<PiProviderProbeStatus, string> = {
+  ok: 'success',
+  auth: 'warning',
+  not_found: 'error',
+  http_error: 'error',
+  unreachable: 'error',
+  skipped: 'default',
+};
 
 interface ProviderJsonModalState {
   provider?: PiRuntimeProviderView;
@@ -117,6 +133,11 @@ const PiProviderSection: React.FC<PiProviderSectionProps> = ({
 }) => {
   const { t } = useTranslation();
   const [saving, setSaving] = React.useState(false);
+  const [checkupOpen, setCheckupOpen] = React.useState(false);
+  const [checkupLoading, setCheckupLoading] = React.useState(false);
+  const [checkupReport, setCheckupReport] = React.useState<PiProviderCheckupReport | null>(null);
+  const [checkupError, setCheckupError] = React.useState(false);
+  const [repairing, setRepairing] = React.useState(false);
   const [providerModal, setProviderModal] = React.useState<ProviderJsonModalState | null>(null);
   const [providerModalForm] = Form.useForm();
   const [credentialJson, setCredentialJson] = React.useState<Record<string, unknown>>({});
@@ -566,6 +587,53 @@ const PiProviderSection: React.FC<PiProviderSectionProps> = ({
     }
   };
 
+  const handleRunCheckup = async () => {
+    setCheckupOpen(true);
+    setCheckupLoading(true);
+    setCheckupError(false);
+    try {
+      const report = await checkPiProviders(true);
+      setCheckupReport(report);
+    } catch (error) {
+      console.error('Failed to check Pi providers:', error);
+      setCheckupError(true);
+      message.error(t('common.error'));
+    } finally {
+      setCheckupLoading(false);
+    }
+  };
+
+  const handleRepairProviders = async () => {
+    // When a probe ran, only repair providers whose failure was observed or
+    // whose suggested URL was verified — never rewrite a healthy endpoint to
+    // an untested one.
+    const repairableKeys = checkupReport
+      ? checkupReport.items
+          .filter((item) => item.suggestedBaseUrl
+            && (!checkupReport.probed
+              || item.probeStatus !== 'ok'
+              || item.suggestedProbeOk))
+          .map((item) => item.providerKey)
+      : undefined;
+    setRepairing(true);
+    try {
+      const result = await repairPiProviders(repairableKeys);
+      onConfigUpdated(result.config);
+      await refreshTrayMenu();
+      if (result.repaired.length > 0) {
+        message.success(t('pi.checkup.repaired', { count: result.repaired.length }));
+      } else {
+        message.info(t('pi.checkup.nothingToRepair'));
+      }
+      setCheckupOpen(false);
+    } catch (error) {
+      console.error('Failed to repair Pi providers:', error);
+      message.error(t('common.error'));
+    } finally {
+      setRepairing(false);
+    }
+  };
+
   const handleSetPrimaryModel = async (provider: PiRuntimeProviderView, modelId: string) => {
     const nextModel = getProviderModelRecords(provider.modelsProvider).find(
       (entry) => entry.id === modelId,
@@ -907,6 +975,14 @@ const PiProviderSection: React.FC<PiProviderSectionProps> = ({
           <Button
             type="link"
             size="small"
+            icon={<SafetyCertificateOutlined />}
+            onClick={handleRunCheckup}
+          >
+            {t('pi.checkup.button')}
+          </Button>
+          <Button
+            type="link"
+            size="small"
             icon={<PlusOutlined />}
             onClick={() => openProviderModal()}
           >
@@ -939,6 +1015,82 @@ const PiProviderSection: React.FC<PiProviderSectionProps> = ({
       </div>
 
       <Modal
+        title={t('pi.checkup.title')}
+        open={checkupOpen}
+        width={720}
+        onCancel={() => setCheckupOpen(false)}
+        footer={[
+          <Button key="recheck" loading={checkupLoading} onClick={handleRunCheckup}>
+            {t('pi.checkup.recheck')}
+          </Button>,
+          <Button
+            key="repair"
+            type="primary"
+            disabled={!checkupReport || !checkupReport.items.some((item) => item.suggestedBaseUrl
+              && (!checkupReport.probed || item.probeStatus !== 'ok' || item.suggestedProbeOk))}
+            loading={repairing}
+            onClick={handleRepairProviders}
+          >
+            {t('pi.checkup.repair')}
+          </Button>,
+          <Button key="close" onClick={() => setCheckupOpen(false)}>
+            {t('common.close')}
+          </Button>,
+        ]}
+      >
+        {checkupLoading && !checkupReport ? (
+          <Empty description={t('pi.checkup.checking')} />
+        ) : checkupError ? (
+          <Alert type="error" showIcon message={t('pi.checkup.failed')} />
+        ) : !checkupReport || checkupReport.items.length === 0 ? (
+          <Empty description={t('pi.checkup.empty')} />
+        ) : (
+          <>
+            {checkupReport.fixableCount > 0 ? (
+              <Alert
+                type="warning"
+                showIcon
+                message={t('pi.checkup.fixableHint', { count: checkupReport.fixableCount })}
+              />
+            ) : (
+              <Alert type="success" showIcon message={t('pi.checkup.allGood')} />
+            )}
+            <div className={styles.checkupList}>
+              {checkupReport.items.map((item) => (
+                <div key={item.providerKey} className={styles.checkupItem}>
+                  <div className={styles.checkupItemHeader}>
+                    <Text strong>{item.displayName}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{item.providerKey}</Text>
+                    {checkupReport.probed && (
+                      <Tag color={PROBE_STATUS_COLOR[item.probeStatus]} style={{ marginInlineStart: 'auto' }}>
+                        {t(`pi.checkup.status.${item.probeStatus}`)}
+                        {item.probeDetail ? ` ${item.probeDetail}` : ''}
+                      </Tag>
+                    )}
+                  </div>
+                  <div className={styles.checkupUrl}>{item.baseUrl}</div>
+                  {item.suggestedBaseUrl && (
+                    <div className={styles.checkupSuggested}>
+                      {t('pi.checkup.suggested')}: {item.suggestedBaseUrl}
+                      {checkupReport.probed && item.probeStatus !== 'ok' && (item.suggestedProbeOk ? (
+                        <Tag color="success" style={{ marginInlineStart: 6 }}>
+                          {t('pi.checkup.suggestedOk')}
+                        </Tag>
+                      ) : (
+                        <Tag color="warning" style={{ marginInlineStart: 6 }}>
+                          {t('pi.checkup.suggestedFailed')}
+                        </Tag>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <Modal
         title={providerModal?.provider
           ? t('pi.provider.editSupplierTitle', { name: providerModal.provider.displayName })
           : t('pi.provider.addSupplierTitle')}
@@ -949,7 +1101,7 @@ const PiProviderSection: React.FC<PiProviderSectionProps> = ({
         onOk={handleSaveProviderModal}
         destroyOnHidden
       >
-        <Form form={providerModalForm} layout="vertical" className={styles.providerForm}>
+        <Form form={providerModalForm} layout="vertical" autoComplete="off" className={styles.providerForm}>
           <div className={styles.modalSection}>
             <Text strong>{t('pi.provider.basicSection')}</Text>
             <div className={styles.modalGrid}>
@@ -1163,9 +1315,6 @@ const PiProviderSection: React.FC<PiProviderSectionProps> = ({
         showCost
         limitRequired={false}
         nameRequired={false}
-        npmType={piModelModal
-          ? piApiToSdkName(getStringField(piModelModal.provider.modelsProvider ?? {}, 'api'))
-          : undefined}
         onCancel={() => setPiModelModal(null)}
         onSuccess={handleSavePiModel}
         onDuplicateId={() => message.error(t('pi.model.idExists'))}

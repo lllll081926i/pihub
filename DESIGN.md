@@ -3,10 +3,10 @@ name: PiHub Design System
 version: 0.1
 status: agent-readable-draft
 colors:
-  primary: "#0958d9"
+  primary: "#1677ff"
   onPrimary: "#ffffff"
   background: "#ffffff"
-  surface: "#fafafa"
+  surface: "#fafbfc"
   text: "rgba(0, 0, 0, 0.88)"
   textSecondary: "rgba(0, 0, 0, 0.65)"
   textTertiary: "rgba(0, 0, 0, 0.45)"
@@ -123,11 +123,17 @@ PiHub 是面向长期使用的桌面端配置工作台。界面应当安静、�
 
 所有可见 UI 颜色必须使用现有 CSS 变量或 Ant Design token。不要在业务组件里硬编码只适用于亮色或暗色的颜色。
 
-主色只用于少量关键位置：
+主色统一为 `#1677ff`（Ant Design 6 默认蓝），由 `web/app/providers.tsx` 的 `colorPrimary` 单一控制。只用于少量关键位置：
 
 - 主按钮和主操作。
 - 选中态、焦点态和当前导航。
 - 需要明确强调的链接或状态。
+
+### 暗色层次哲学
+
+暗色模式不是亮色的简单反相，而是带冷调的分层深色。四层背景从深到浅：`--color-bg-layout`（页面底色，最深）→ `--color-bg-base` → `--color-bg-container`（卡片、弹窗）→ `--color-bg-elevated`（浮层、下拉）。层次靠明度差表达，而不是靠加亮边框；暗色边框因此可以收敛得更柔和。
+
+亮色模式同理：`--color-bg-layout` 用柔和的浅灰（`#f4f5f7`）托底，让白色容器卡片自然浮起，页面不靠边框堆砌层次。
 
 状态色必须表达真实语义：
 
@@ -255,6 +261,37 @@ Gateway 辅助说明文字统一使用 `font-size: 10px` 和 `var(--color-text-t
 
 不要把每条消息都渲染成大型编号日志卡片。不要把工具卡片包在普通文本气泡里。
 
+## 动画
+
+所有动效使用 `web/App.css` 的动画 token：曲线 `--ease-out-expo` / `--ease-out-quart` / `--ease-spring`，时长 `--duration-fast`（120ms）/ `--duration-normal`（200ms）/ `--duration-slow`（300ms）。
+
+规范：
+
+- 页面切换（KeepAlive 路由）：fade + `translateY(8px)`，200ms `--ease-out-expo`，活跃态加 `will-change`。不做路由级退出动画。
+- 卡片入场：fade + 小位移，单张卡片 200–300ms；列表批量入场不叠加 stagger 延迟。
+- hover/active 反馈用 `--duration-fast`；选中指示条等强调动画可用 `--ease-spring`，但只在侧栏导航等少量位置使用。
+- 主题切换：背景、边框、文字颜色 0.3s 交叉过渡，不做位移动画。
+- 所有动效必须在 `prefers-reduced-motion: reduce` 下降级为无动画。
+
+## 图表
+
+图表只用真实数据，不造假数据填充。没有数据时显示空态，不显示空图表。
+
+- 统一通过 `web/features/coding/pi/components/charts/` 的 tree-shaken ECharts 封装（`echartsCore` 按需注册、`EChart` React wrapper），并以 `React.lazy` 懒加载，不进入启动主 chunk。
+- 图表颜色必须来自 `chartPalette.ts` 的 `getChartPalette(resolvedTheme)`，坐标轴、网格线、tooltip 背景与文字全部主题感知；不要在图表 option 里硬编码浅色或深色专用颜色。
+- 序列色按 `palette.series` 顺序取色，主强调序列用 `palette.primary`。
+- 坐标轴标签 10px 三级文字色，网格线用 `splitLine` 低对比色，tooltip 用浮层底色 + 细边框。
+- 面积图可以使用主色渐变填充；柱状图控制 `barMaxWidth`；环形图中心可以显示总量等关键数字。
+
+## 侧边栏与导航
+
+主侧边栏是 56px 图标栏，容器底色 + 右侧细分隔线，与内容区形成稳定层级。
+
+- 导航项 40×40，圆角 10px，图标 20px；hover 用 `--color-bg-hover`，选中用 `--color-bg-selected` + 主色图标。
+- 选中指示条为左侧 3px 竖条，高度 20px，用 `--ease-spring` 做 scaleY 进出动画。
+- 焦点态使用 `--color-focus-ring` 外描边，不移除 outline。
+- 导航项必须带 tooltip 和 aria-label。
+
 ## 图标与操作
 
 常见操作使用 `lucide-react` 图标：保存、下载、刷新、搜索、关闭、复制、展开、收起、设置、撤销、重做等。
@@ -282,6 +319,8 @@ Gateway 辅助说明文字统一使用 `font-size: 10px` 和 `var(--color-text-t
 - 弹窗表单默认横向布局。
 - 同时检查亮色和暗色主题。
 - 用真实空态表达无数据。
+- 动效使用设计 token 的曲线和时长，并做 reduced-motion 降级。
+- 图表走主题感知的共享 ECharts 封装，懒加载。
 - UI 文案保持短、准、操作性强。
 
 ## Don't
@@ -294,3 +333,5 @@ Gateway 辅助说明文字统一使用 `font-size: 10px` 和 `var(--color-text-t
 - 不要为单个页面引入一套新的视觉系统。
 - 不要为了局部差异新增全局 Ant Design 配置。
 - 不要让文字重叠、关键状态被截断或动态内容导致布局跳动。
+- 不要绕过 `chartPalette` 在图表里硬编码颜色。
+- 不要给 hover 之外的常规状态加夸张弹性动画或逐条 stagger 延迟。

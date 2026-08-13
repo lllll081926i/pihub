@@ -95,6 +95,7 @@ export const McpMetadataModal: React.FC<McpMetadataModalProps> = ({
         </section>
         <Form
           form={form}
+          autoComplete="off"
           layout="horizontal"
           labelCol={{ span: 5 }}
           wrapperCol={{ span: 19 }}

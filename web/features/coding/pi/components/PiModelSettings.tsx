@@ -154,6 +154,7 @@ const PiModelSettings: React.FC<PiModelSettingsProps> = ({
       <div className={styles.modelCardContent}>
         <Form
           form={form}
+          autoComplete="off"
           layout="vertical"
           onValuesChange={handleModelSettingsChange}
         >

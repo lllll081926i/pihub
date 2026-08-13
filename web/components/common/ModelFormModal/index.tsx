@@ -1,20 +1,10 @@
 import React from 'react';
-import { Modal, Form, Input, AutoComplete, Button, Select, message, Typography, Tag, Divider, Checkbox, InputNumber } from 'antd';
+import { Modal, Form, Input, AutoComplete, Button, Select, message, Typography, Checkbox, InputNumber } from 'antd';
 import { RightOutlined, DownOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/stores';
 import { LazyJsonEditor as JsonEditor } from '@/components/common/lazyMonaco';
 import type { I18nPrefix } from '@/components/common/ProviderCard/types';
-import {
-  PRESET_MODELS,
-  getPresetModelsVersion,
-  subscribePresetModels,
-  type PresetModel,
-} from '@/constants/presetModels';
-import {
-  PI_INPUT_TYPES,
-  buildPiThinkingLevelMapFromPreset,
-} from '@/utils/piModelMetadata';
 import { hasCompleteModelLimitPair } from '@/utils/modelLimits';
 
 const { Text } = Typography;
@@ -115,8 +105,6 @@ interface ModelFormModalProps {
   /** Whether name field is required (settings page: true, Pi model form: false) */
   nameRequired?: boolean;
 
-  /** NPM SDK type for preset models dropdown */
-  npmType?: string;
   /** Modal width override */
   width?: number;
 
@@ -151,7 +139,6 @@ const ModelFormModal: React.FC<ModelFormModalProps> = ({
   limitRequired = true,
   requireCompleteLimitPair = false,
   nameRequired = true,
-  npmType,
   width,
   onCancel,
   onSuccess,
@@ -173,7 +160,6 @@ const ModelFormModal: React.FC<ModelFormModalProps> = ({
   const [inputModalities, setInputModalities] = React.useState<string[]>([]);
   const [outputModalities, setOutputModalities] = React.useState<string[]>([]);
   const [advancedExpanded, setAdvancedExpanded] = React.useState(false);
-  const [presetsExpanded, setPresetsExpanded] = React.useState(false);
   const [capReasoning, setCapReasoning] = React.useState(true);
   const [capAttachment, setCapAttachment] = React.useState(false);
   const [capToolCall, setCapToolCall] = React.useState(true);
@@ -183,94 +169,6 @@ const ModelFormModal: React.FC<ModelFormModalProps> = ({
   const costOutputValue = Form.useWatch('costOutput', form);
   const costCacheReadValue = Form.useWatch('costCacheRead', form);
   const costCacheWriteValue = Form.useWatch('costCacheWrite', form);
-  const presetModelsVersion = React.useSyncExternalStore(
-    subscribePresetModels,
-    getPresetModelsVersion,
-    getPresetModelsVersion,
-  );
-
-  const presetModels = React.useMemo(() => {
-    if (!npmType) return [];
-    return PRESET_MODELS[npmType] || [];
-  }, [npmType, presetModelsVersion]);
-
-  const otherPresetModels = React.useMemo(() => {
-    if (!npmType) return [];
-    return Object.entries(PRESET_MODELS)
-      .filter(([type]) => type !== npmType)
-      .flatMap(([, models]) => models);
-  }, [npmType, presetModelsVersion]);
-
-  const handlePresetSelect = (preset: PresetModel) => {
-    // When editing, don't override the model ID
-    if (isEdit) {
-      form.setFieldsValue({
-        name: preset.name,
-        contextLimit: preset.contextLimit,
-        outputLimit: preset.outputLimit,
-      });
-    } else {
-      form.setFieldsValue({
-        id: preset.id,
-        name: preset.name,
-        contextLimit: preset.contextLimit,
-        outputLimit: preset.outputLimit,
-      });
-    }
-
-    // Set options if present
-    if (showOptions && preset.options && Object.keys(preset.options).length > 0) {
-      setJsonOptions(preset.options);
-      setJsonValid(true);
-    }
-
-    // Set variants if present
-    if (showVariants && preset.variants && Object.keys(preset.variants).length > 0) {
-      setJsonVariants(preset.variants);
-      setVariantsValid(true);
-      // Auto expand advanced settings if variants has content
-      setAdvancedExpanded(true);
-    }
-
-    if (showThinkingLevelMap) {
-      const nextThinkingLevelMap = buildPiThinkingLevelMapFromPreset(preset.variants);
-      setJsonThinkingLevelMap(nextThinkingLevelMap);
-      setThinkingLevelMapValid(true);
-      if (Object.keys(nextThinkingLevelMap).length > 0) {
-        setAdvancedExpanded(true);
-      }
-    }
-
-    // Set modalities if present
-    if (preset.modalities) {
-      if (preset.modalities.input) {
-        setInputModalities(showInputTypes
-          ? preset.modalities.input.filter((item) => PI_INPUT_TYPES.has(item))
-          : preset.modalities.input);
-      }
-      if (preset.modalities.output) {
-        setOutputModalities(preset.modalities.output);
-      }
-      // Auto expand advanced settings if modalities has content
-      if ((preset.modalities.input && preset.modalities.input.length > 0) ||
-          (preset.modalities.output && preset.modalities.output.length > 0)) {
-        setAdvancedExpanded(true);
-      }
-    }
-
-    // Set capability fields from preset
-    if (showModalities || showReasoning) {
-      setCapReasoning(preset.reasoning !== undefined ? preset.reasoning : true);
-    }
-    if (showModalities) {
-      setCapAttachment(preset.attachment !== undefined ? preset.attachment : false);
-      setCapToolCall(preset.tool_call !== undefined ? preset.tool_call : true);
-      setCapTemperature(preset.temperature !== undefined ? preset.temperature : true);
-    }
-
-    setPresetsExpanded(false);
-  };
-
   const labelCol = { span: language === 'zh-CN' ? 4 : 6 };
   const wrapperCol = { span: 20 };
 
@@ -466,6 +364,8 @@ const ModelFormModal: React.FC<ModelFormModalProps> = ({
         }
       } else {
         form.resetFields();
+        // 未手动选择预设的模型默认 256k 上下文
+        form.setFieldsValue({ contextLimit: 256000 });
         setJsonOptions({});
         setJsonValid(true);
         setJsonVariants({});
@@ -695,6 +595,7 @@ const ModelFormModal: React.FC<ModelFormModalProps> = ({
     >
       <Form
         form={form}
+        autoComplete="off"
         layout="horizontal"
         labelCol={labelCol}
         wrapperCol={wrapperCol}
@@ -702,79 +603,14 @@ const ModelFormModal: React.FC<ModelFormModalProps> = ({
       >
         <Form.Item
           label={t(getKey('id'))}
-          required
+          name="id"
+          rules={[{ required: true, message: t(getKey('idPlaceholder')) }]}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Form.Item
-              name="id"
-              noStyle
-              rules={[{ required: true, message: t(getKey('idPlaceholder')) }]}
-            >
-              <Input
-                placeholder={t(getKey('idPlaceholder'))}
-                disabled={isEdit}
-                style={{ flex: 1 }}
-              />
-            </Form.Item>
-            {npmType && presetModels.length > 0 && (
-              <a
-                style={{
-                  flexShrink: 0,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: 'var(--ant-color-text-secondary)',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                  whiteSpace: 'nowrap',
-                }}
-                onClick={() => setPresetsExpanded(!presetsExpanded)}
-              >
-                {t('piModels.model.selectPreset')}
-                {presetsExpanded ? ' ▴' : ' ▾'}
-              </a>
-            )}
-          </div>
+          <Input
+            placeholder={t(getKey('idPlaceholder'))}
+            disabled={isEdit}
+          />
         </Form.Item>
-
-        {presetsExpanded && presetModels.length > 0 && (
-          <Form.Item wrapperCol={{ offset: language === 'zh-CN' ? 4 : 6, span: 20 }} style={{ marginTop: -8 }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {presetModels.map((preset) => (
-                <Tag
-                  key={preset.id}
-                  style={{
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  }}
-                  onClick={() => handlePresetSelect(preset)}
-                >
-                  {preset.name}
-                </Tag>
-              ))}
-            </div>
-            {otherPresetModels.length > 0 && (
-              <>
-                <Divider style={{ margin: '12px 0', fontSize: 12, color: 'var(--color-text-tertiary)' }}>
-                  {t('piModels.model.otherPresets')}
-                </Divider>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {otherPresetModels.map((preset) => (
-                    <Tag
-                      key={preset.id}
-                      style={{
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                      }}
-                      onClick={() => handlePresetSelect(preset)}
-                    >
-                      {preset.name}
-                    </Tag>
-                  ))}
-                </div>
-              </>
-            )}
-          </Form.Item>
-        )}
 
         <Form.Item
           label={t(getKey('name'))}
@@ -863,7 +699,7 @@ const ModelFormModal: React.FC<ModelFormModalProps> = ({
                 <span style={{ marginLeft: 4 }}>
                   {t('common.advancedSettings')}
                   {hasAdvancedContent && !advancedExpanded && (
-                    <span style={{ marginLeft: 4, color: '#1890ff' }}>*</span>
+                    <span style={{ marginLeft: 4, color: 'var(--ant-color-primary)' }}>*</span>
                   )}
                 </span>
               </Button>

@@ -61,6 +61,7 @@ test('buildFetchedPiModel falls back to upstream fields without preset', () => {
   assert.deepEqual(model, {
     id: 'custom-model',
     name: 'Custom Model',
+    contextWindow: 256000,
   });
 });
 

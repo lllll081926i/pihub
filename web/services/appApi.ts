@@ -86,6 +86,15 @@ export const setWindowBackgroundColor = async (r: number, g: number, b: number):
 };
 
 /**
+ * Set native window theme so the OS title bar follows the app theme.
+ * Windows: toggles DWM immersive dark mode on the native title bar.
+ * Pass 'dark' | 'light', or null to follow the system.
+ */
+export const setWindowTheme = async (theme: 'dark' | 'light' | null): Promise<void> => {
+  await invoke('set_window_theme', { theme });
+};
+
+/**
  * Load preset models from local cache file (app data dir).
  * Returns true if the cache was found and applied, false otherwise.
  */

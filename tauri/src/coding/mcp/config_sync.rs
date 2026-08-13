@@ -12,40 +12,17 @@ use super::command_normalize;
 use super::format_configs::get_format_config;
 use super::types::{now_ms, McpServer, McpSyncDetail};
 use crate::coding::{
-    runtime_location,
-    tools::{
-        resolve_mcp_config_path_with_db, resolve_mcp_config_path_with_db_async, McpFormatConfig,
-        RuntimeTool,
-    },
+    file_io, runtime_location,
+    tools::{resolve_mcp_config_path_with_db_async, McpFormatConfig, RuntimeTool},
 };
 
 /// Sync an MCP server to a specific tool's config file
-pub fn sync_server_to_tool(
-    db: &crate::db::SqliteDbState,
-    server: &McpServer,
-    tool: &RuntimeTool,
-) -> Result<McpSyncDetail, String> {
-    sync_server_to_tool_with_enabled(db, server, tool, true)
-}
-
 pub async fn sync_server_to_tool_async(
     db: &crate::db::SqliteDbState,
     server: &McpServer,
     tool: &RuntimeTool,
 ) -> Result<McpSyncDetail, String> {
     sync_server_to_tool_with_enabled_async(db, server, tool, true).await
-}
-
-/// Sync an MCP server to a specific tool's config file with explicit enabled state
-pub fn sync_server_to_tool_with_enabled(
-    db: &crate::db::SqliteDbState,
-    server: &McpServer,
-    tool: &RuntimeTool,
-    enabled: bool,
-) -> Result<McpSyncDetail, String> {
-    let config_path = resolve_mcp_config_path_with_db(db, tool)
-        .ok_or_else(|| format!("Tool {} does not support MCP", tool.key))?;
-    sync_server_to_path(tool, &config_path, server, enabled)
 }
 
 pub async fn sync_server_to_tool_with_enabled_async(
@@ -57,18 +34,7 @@ pub async fn sync_server_to_tool_with_enabled_async(
     let config_path = resolve_mcp_config_path_with_db_async(db, tool)
         .await
         .ok_or_else(|| format!("Tool {} does not support MCP", tool.key))?;
-    sync_server_to_path(tool, &config_path, server, enabled)
-}
-
-/// Remove an MCP server from a specific tool's config file
-pub fn remove_server_from_tool(
-    db: &crate::db::SqliteDbState,
-    server_name: &str,
-    tool: &RuntimeTool,
-) -> Result<(), String> {
-    let config_path = resolve_mcp_config_path_with_db(db, tool)
-        .ok_or_else(|| format!("Tool {} does not support MCP", tool.key))?;
-    remove_server_from_path(tool, &config_path, server_name)
+    sync_server_to_path_async(tool, &config_path, server, enabled).await
 }
 
 pub async fn remove_server_from_tool_async(
@@ -79,10 +45,10 @@ pub async fn remove_server_from_tool_async(
     let config_path = resolve_mcp_config_path_with_db_async(db, tool)
         .await
         .ok_or_else(|| format!("Tool {} does not support MCP", tool.key))?;
-    remove_server_from_path(tool, &config_path, server_name)
+    remove_server_from_path_async(tool, &config_path, server_name).await
 }
 
-fn sync_server_to_path(
+async fn sync_server_to_path_async(
     tool: &RuntimeTool,
     config_path: &PathBuf,
     server: &McpServer,
@@ -95,23 +61,29 @@ fn sync_server_to_path(
 
     match format {
         // json5 handles both standard JSON and JSONC (with comments, trailing commas)
-        "json" | "jsonc" => sync_server_to_json(
-            config_path,
-            server,
-            field,
-            format_config,
-            enabled,
-            &tool.key,
-            should_wrap_cmd,
-        ),
-        "toml" => sync_server_to_toml(
-            config_path,
-            server,
-            field,
-            enabled,
-            &tool.key,
-            should_wrap_cmd,
-        ),
+        "json" | "jsonc" => {
+            sync_server_to_json_async(
+                config_path,
+                server,
+                field,
+                format_config,
+                enabled,
+                &tool.key,
+                should_wrap_cmd,
+            )
+            .await
+        }
+        "toml" => {
+            sync_server_to_toml_async(
+                config_path,
+                server,
+                field,
+                enabled,
+                &tool.key,
+                should_wrap_cmd,
+            )
+            .await
+        }
         _ => Err(format!("Unsupported config format: {}", format)),
     }
     .map(|_| McpSyncDetail {
@@ -134,7 +106,7 @@ fn should_wrap_cmd_for_windows_config_path(config_path: &Path) -> bool {
         .unwrap_or(true)
 }
 
-fn remove_server_from_path(
+async fn remove_server_from_path_async(
     tool: &RuntimeTool,
     config_path: &PathBuf,
     server_name: &str,
@@ -144,15 +116,25 @@ fn remove_server_from_path(
 
     match format {
         // json5 handles both standard JSON and JSONC (with comments, trailing commas)
-        "json" | "jsonc" => remove_server_from_json(config_path, server_name, field),
-        "toml" => remove_server_from_toml(config_path, server_name, field),
+        "json" | "jsonc" => remove_server_from_json_async(config_path, server_name, field).await,
+        "toml" => remove_server_from_toml_async(config_path, server_name, field).await,
         _ => Err(format!("Unsupported config format: {}", format)),
+    }
+}
+
+/// Read a tool config file as text with the shared timeout-guarded async
+/// reader. `Ok(None)` means the file does not exist (no exists() precheck).
+async fn read_config_text_async(config_path: &Path) -> Result<Option<String>, String> {
+    match file_io::read_to_string_async(config_path).await {
+        Ok(content) => Ok(Some(content)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(format!("Failed to read config file: {}", error)),
     }
 }
 
 /// Sync server to JSON/JSONC config file (using json5 for parsing)
 /// json5 is a superset of JSON that supports comments, trailing commas, etc.
-fn sync_server_to_json(
+async fn sync_server_to_json_async(
     config_path: &PathBuf,
     server: &McpServer,
     field: &str,
@@ -161,25 +143,19 @@ fn sync_server_to_json(
     tool_key: &str,
     should_wrap_cmd: bool,
 ) -> Result<(), String> {
-    // Read existing config or create new (json5 handles both JSON and JSONC)
-    let mut config: Value = if config_path.exists() {
-        let content = std::fs::read_to_string(config_path)
-            .map_err(|e| format!("Failed to read config file: {}", e))?;
-        let content = content.trim();
-        if content.is_empty() {
-            serde_json::json!({})
-        } else {
-            json5::from_str(content).map_err(|e| format!("Failed to parse config file: {}", e))?
+    // Read existing config or create new (json5 handles both JSON and JSONC).
+    // NotFound is treated as an empty config — no exists() precheck (TOCTOU).
+    let mut config: Value = match read_config_text_async(config_path).await? {
+        Some(content) => {
+            let content = content.trim();
+            if content.is_empty() {
+                serde_json::json!({})
+            } else {
+                json5::from_str(content).map_err(|e| format!("Failed to parse config file: {}", e))?
+            }
         }
-    } else {
-        serde_json::json!({})
+        None => serde_json::json!({}),
     };
-
-    // Ensure parent directory exists
-    if let Some(parent) = config_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create config directory: {}", e))?;
-    }
 
     // Get or create the MCP servers field, supporting nested paths like `mcp.servers`.
     let mcp_servers = ensure_json_object_path(&mut config, field)?;
@@ -194,29 +170,28 @@ fn sync_server_to_json(
         .ok_or(format!("{} is not a JSON object", field))?
         .insert(server.name.clone(), server_config);
 
-    // Write back to file with pretty formatting
+    // Write back to file with pretty formatting (atomic: temp file + rename,
+    // so a crash mid-write never truncates the user's whole tool config)
     // Note: json5 crate doesn't have serialization, so we write standard JSON
     // which is valid JSON5 (JSON is a subset of JSON5)
     let content = serde_json::to_string_pretty(&config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;
-    std::fs::write(config_path, content)
+    file_io::write_all_atomic_async(config_path, &content)
+        .await
         .map_err(|e| format!("Failed to write config file: {}", e))?;
 
     Ok(())
 }
 
 /// Remove server from JSON/JSONC config file (using json5 for parsing)
-fn remove_server_from_json(
+async fn remove_server_from_json_async(
     config_path: &PathBuf,
     server_name: &str,
     field: &str,
 ) -> Result<(), String> {
-    if !config_path.exists() {
-        return Ok(()); // Nothing to remove
-    }
-
-    let content = std::fs::read_to_string(config_path)
-        .map_err(|e| format!("Failed to read config file: {}", e))?;
+    let Some(content) = read_config_text_async(config_path).await? else {
+        return Ok(()); // File does not exist, nothing to remove
+    };
     let content = content.trim();
     if content.is_empty() {
         return Ok(()); // Empty file, nothing to remove
@@ -225,23 +200,29 @@ fn remove_server_from_json(
         json5::from_str(content).map_err(|e| format!("Failed to parse config file: {}", e))?;
 
     // Get the MCP servers field, supporting nested paths like `mcp.servers`.
-    if let Some(mcp_servers) = get_json_value_by_path_mut(&mut config, field) {
-        if let Some(servers_obj) = mcp_servers.as_object_mut() {
-            servers_obj.remove(server_name);
-        }
+    let removed = get_json_value_by_path_mut(&mut config, field)
+        .and_then(|mcp_servers| mcp_servers.as_object_mut())
+        .map(|servers_obj| servers_obj.remove(server_name).is_some())
+        .unwrap_or(false);
+
+    // No-op removal must NOT rewrite the file: json5 has no serializer, so a
+    // rewrite would destroy the user's comments and formatting for no reason.
+    if !removed {
+        return Ok(());
     }
 
     // Write back to file
     let content = serde_json::to_string_pretty(&config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;
-    std::fs::write(config_path, content)
+    file_io::write_all_atomic_async(config_path, &content)
+        .await
         .map_err(|e| format!("Failed to write config file: {}", e))?;
 
     Ok(())
 }
 
 /// Sync server to TOML config file (using toml_edit for precise formatting)
-fn sync_server_to_toml(
+async fn sync_server_to_toml_async(
     config_path: &PathBuf,
     server: &McpServer,
     field: &str,
@@ -258,25 +239,18 @@ fn sync_server_to_toml(
         ));
     }
 
-    // Ensure parent directory exists
-    if let Some(parent) = config_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create config directory: {}", e))?;
-    }
-
-    // Read existing config or create new document
-    let mut doc = if config_path.exists() {
-        let content = std::fs::read_to_string(config_path)
-            .map_err(|e| format!("Failed to read config file: {}", e))?;
-        if content.trim().is_empty() {
-            toml_edit::DocumentMut::new()
-        } else {
-            content
-                .parse::<toml_edit::DocumentMut>()
-                .map_err(|e| format!("Failed to parse TOML config: {}", e))?
+    // Read existing config or create new document (NotFound => empty, no TOCTOU precheck)
+    let mut doc = match read_config_text_async(config_path).await? {
+        Some(content) => {
+            if content.trim().is_empty() {
+                toml_edit::DocumentMut::new()
+            } else {
+                content
+                    .parse::<toml_edit::DocumentMut>()
+                    .map_err(|e| format!("Failed to parse TOML config: {}", e))?
+            }
         }
-    } else {
-        toml_edit::DocumentMut::new()
+        None => toml_edit::DocumentMut::new(),
     };
 
     // Ensure the servers field exists
@@ -294,16 +268,17 @@ fn sync_server_to_toml(
     // Add/update server
     doc[field][&server.name] = Item::Table(server_table);
 
-    // Write back to file
+    // Write back to file (atomic: temp file + rename)
     let content = doc.to_string();
-    std::fs::write(config_path, content)
+    file_io::write_all_atomic_async(config_path, &content)
+        .await
         .map_err(|e| format!("Failed to write config file: {}", e))?;
 
     Ok(())
 }
 
 /// Remove server from TOML config file (using toml_edit)
-fn remove_server_from_toml(
+async fn remove_server_from_toml_async(
     config_path: &PathBuf,
     server_name: &str,
     field: &str,
@@ -315,12 +290,9 @@ fn remove_server_from_toml(
         ));
     }
 
-    if !config_path.exists() {
-        return Ok(()); // Nothing to remove
-    }
-
-    let content = std::fs::read_to_string(config_path)
-        .map_err(|e| format!("Failed to read config file: {}", e))?;
+    let Some(content) = read_config_text_async(config_path).await? else {
+        return Ok(()); // File does not exist, nothing to remove
+    };
 
     let mut doc = match content.parse::<toml_edit::DocumentMut>() {
         Ok(doc) => doc,
@@ -328,13 +300,21 @@ fn remove_server_from_toml(
     };
 
     // Get the MCP servers field and remove the server
-    if let Some(servers) = doc.get_mut(field).and_then(|s| s.as_table_mut()) {
-        servers.remove(server_name);
+    let removed = doc
+        .get_mut(field)
+        .and_then(|s| s.as_table_mut())
+        .map(|servers| servers.remove(server_name).is_some())
+        .unwrap_or(false);
+
+    // No-op removal must not rewrite the user's file for no reason
+    if !removed {
+        return Ok(());
     }
 
-    // Write back to file
+    // Write back to file (atomic: temp file + rename)
     let content = doc.to_string();
-    std::fs::write(config_path, content)
+    file_io::write_all_atomic_async(config_path, &content)
+        .await
         .map_err(|e| format!("Failed to write config file: {}", e))?;
 
     Ok(())
@@ -880,16 +860,6 @@ fn build_http_config(
 
         Ok(result)
     }
-}
-
-/// Import MCP servers from a tool's config file
-pub fn import_servers_from_tool(
-    db: &crate::db::SqliteDbState,
-    tool: &RuntimeTool,
-) -> Result<Vec<McpServer>, String> {
-    let config_path = resolve_mcp_config_path_with_db(db, tool)
-        .ok_or_else(|| format!("Tool {} does not support MCP", tool.key))?;
-    import_servers_from_path(tool, &config_path)
 }
 
 pub async fn import_servers_from_tool_async(
