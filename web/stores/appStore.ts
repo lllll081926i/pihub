@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Language } from '@/i18n';
-import { getSettings, saveSettings, type AppSettings } from '@/services';
+import { getSettings, updateSettings } from '@/services';
 
 interface AppState {
   // Loading state
@@ -43,12 +43,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set({ language });
 
     try {
-      const currentSettings = await getSettings();
-      const newSettings: AppSettings = {
-        ...currentSettings,
-        language,
-      };
-      await saveSettings(newSettings);
+      await updateSettings({ language });
     } catch (error) {
       console.error('Failed to save language:', error);
     }

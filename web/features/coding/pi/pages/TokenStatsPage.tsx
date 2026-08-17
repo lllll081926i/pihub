@@ -119,6 +119,19 @@ const TokenStatsPage: React.FC = () => {
   const [refreshing, setRefreshing] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<DetailTab>('models');
   const [detailRange, setDetailRange] = React.useState<DetailRange>('30');
+  const [cacheEpoch, setCacheEpoch] = React.useState(0);
+
+  React.useEffect(() => {
+    const handleCacheCleared = () => {
+      TOKEN_STATS_CACHE = null;
+      setData(null);
+      setLoading(true);
+      setRefreshing(false);
+      setCacheEpoch((value) => value + 1);
+    };
+    window.addEventListener('token-stats-cache-cleared', handleCacheCleared);
+    return () => window.removeEventListener('token-stats-cache-cleared', handleCacheCleared);
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -150,17 +163,12 @@ const TokenStatsPage: React.FC = () => {
     };
     void load();
     return () => { cancelled = true; };
-  }, []);
+  }, [cacheEpoch]);
 
   const totalTokens = (data?.totalInputTokens ?? 0)
     + (data?.totalOutputTokens ?? 0)
     + (data?.totalCacheWriteTokens ?? 0)
     + (data?.totalCacheReadTokens ?? 0);
-
-  const maxDayTokens = React.useMemo(() => {
-    if (!data?.days.length) return 1;
-    return Math.max(...data.days.map(d => d.inputTokens + d.outputTokens + d.cacheWriteTokens + d.cacheReadTokens), 1);
-  }, [data]);
 
   const sortedModels = React.useMemo(() => {
     if (!data?.models.length) return [];
@@ -182,8 +190,21 @@ const TokenStatsPage: React.FC = () => {
     if (!data?.days.length || detailRange === 'all') {
       return data?.days ?? [];
     }
-    return data.days.slice(-Number(detailRange));
+    const days = Number(detailRange);
+    // Backend buckets are keyed by UTC date, so compute the cutoff in UTC as
+    // well; using local midnight plus toISOString() shifts the boundary in
+    // positive/negative time zones.
+    const cutoff = new Date();
+    cutoff.setUTCHours(0, 0, 0, 0);
+    cutoff.setUTCDate(cutoff.getUTCDate() - days + 1);
+    const cutoffKey = cutoff.toISOString().slice(0, 10);
+    return data.days.filter((day) => day.date >= cutoffKey);
   }, [data, detailRange]);
+
+  const maxDayTokens = React.useMemo(() => {
+    if (!visibleDays.length) return 1;
+    return Math.max(...visibleDays.map(d => d.inputTokens + d.outputTokens + d.cacheWriteTokens + d.cacheReadTokens), 1);
+  }, [visibleDays]);
 
   const rangeOptions = [
     { label: t('tokenStats.range7'), value: '7' },
@@ -364,7 +385,7 @@ const TokenStatsPage: React.FC = () => {
               <SubKpiItem
                 icon={<SaveOutlined />}
                 label={t('tokenStats.cacheSaving')}
-                value={formatCost(data.cacheSavingsUsd)}
+                value={data.cacheSavingsUsd > 0 ? formatCost(data.cacheSavingsUsd) : t('common.noData')}
                 hint={`${t('tokenStats.cacheTokens')}: ${formatNumber(data.totalCacheReadTokens)}`}
                 accent="var(--ant-color-success)"
               />

@@ -1,4 +1,6 @@
 import React from 'react';
+import { Spin } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import type { RouteEntry } from '@/app/routeConfig';
 import { getRouteScrollKey, matchRouteEntry } from '@/app/routeMatching';
@@ -29,6 +31,24 @@ interface CachedRouteItemProps {
   rememberScrollPosition: () => number;
 }
 
+const RouteLoadingFallback: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="status"
+      aria-label={t('common.loading')}
+      style={{
+        display: 'grid',
+        minHeight: 240,
+        placeItems: 'center',
+        color: 'var(--color-text-secondary)',
+      }}
+    >
+      <Spin size="small" />
+    </div>
+  );
+};
+
 /**
  * 页面组件可通过此 hook 感知当前是否处于活跃状态（可见）。
  * 典型用法：页面从隐藏切回可见时触发数据刷新。
@@ -49,7 +69,9 @@ const CachedRouteItem: React.FC<CachedRouteItemProps> = React.memo(
           className={`keep-alive-route ${isActive ? 'keep-alive-route-active' : ''}`}
           style={{ display: isActive ? undefined : 'none' }}
         >
-          <Component />
+          <React.Suspense fallback={<RouteLoadingFallback />}>
+            <Component />
+          </React.Suspense>
         </div>
       </KeepAliveContext.Provider>
     );

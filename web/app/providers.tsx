@@ -37,13 +37,14 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   // Keep a global fallback for tray-driven config changes so inactive pages and
   // subpanels that do not maintain their own listeners still resync to disk state.
   React.useEffect(() => {
+    let disposed = false;
     let unlistenConfig: (() => void) | undefined;
     let unlistenUpdate: (() => void) | undefined;
     let unlistenProgress: (() => void) | undefined;
 
     const setupListeners = async () => {
       try {
-        unlistenConfig = await listen<string>('config-changed', async (event) => {
+        const cleanup = await listen<string>('config-changed', async (event) => {
           if (event.payload === 'tray') {
             const refreshEvent = new CustomEvent(TRAY_CONFIG_REFRESH_EVENT, {
               cancelable: true,
@@ -55,25 +56,28 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
             }
           }
         });
+        if (disposed) cleanup(); else unlistenConfig = cleanup;
       } catch (error) {
         console.error('Failed to setup config change listener:', error);
       }
 
       try {
-        unlistenUpdate = await listen<UpdateInfo>('update-available', (event) => {
+        const cleanup = await listen<UpdateInfo>('update-available', (event) => {
           showUpdatePrompt(event.payload);
         });
+        if (disposed) cleanup(); else unlistenUpdate = cleanup;
       } catch (error) {
         console.error('Failed to setup update listener:', error);
       }
 
       try {
-        unlistenProgress = await listen<UpdateDownloadProgress>(
+        const cleanup = await listen<UpdateDownloadProgress>(
           'update-download-progress',
           (event) => {
             showInstallProgress(event.payload);
           },
         );
+        if (disposed) cleanup(); else unlistenProgress = cleanup;
       } catch (error) {
         console.error('Failed to setup update progress listener:', error);
       }
@@ -82,6 +86,7 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
     void setupListeners();
 
     return () => {
+      disposed = true;
       unlistenConfig?.();
       unlistenUpdate?.();
       unlistenProgress?.();

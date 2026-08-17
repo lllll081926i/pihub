@@ -2,8 +2,7 @@ import { create } from 'zustand';
 import type { SidebarHiddenByPage } from '@/services';
 import {
   getSettings,
-  saveSettings,
-  type AppSettings,
+  updateSettings,
   normalizeSidebarHiddenByPage,
 } from '@/services';
 
@@ -43,12 +42,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     const nextVisibility = { ...currentVisibility, [page]: hidden };
 
     set({ sidebarHiddenByPage: nextVisibility });
-
-    const currentSettings = await getSettings();
-    const newSettings: AppSettings = {
-      ...currentSettings,
-      sidebar_hidden_by_page: nextVisibility,
-    };
-    await saveSettings(newSettings);
+    try {
+      await updateSettings({ sidebar_hidden_by_page: nextVisibility });
+    } catch (error) {
+      // Keep the UI consistent with persisted settings when the backend write
+      // fails (for example while the database is being restored).
+      set({ sidebarHiddenByPage: currentVisibility });
+      throw error;
+    }
   },
 }));

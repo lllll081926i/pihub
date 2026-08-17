@@ -100,11 +100,7 @@ export const saveSettings = async (settings: AppSettings): Promise<void> => {
  * Update specific settings fields
  */
 export const updateSettings = async (updates: Partial<AppSettings>): Promise<void> => {
-  const currentSettings = await getSettings();
-  await saveSettings({
-    ...currentSettings,
-    ...updates,
-  });
+  await invoke('update_settings', { updates });
 };
 
 /**

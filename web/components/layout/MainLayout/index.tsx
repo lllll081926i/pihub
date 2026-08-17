@@ -81,7 +81,10 @@ const AppSidebar: React.FC = () => {
     // 先匹配更具体的子路径，再匹配父路径
     // 避免 /coding/pi/extensions 被 /coding/pi 抢先匹配
     for (const entry of allEntries) {
-      if (entry.path !== '/coding/pi' && location.pathname.startsWith(entry.path)) {
+      if (
+        entry.path !== '/coding/pi'
+        && (location.pathname === entry.path || location.pathname.startsWith(`${entry.path}/`))
+      ) {
         return entry.key;
       }
     }

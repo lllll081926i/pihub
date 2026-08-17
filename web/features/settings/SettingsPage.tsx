@@ -24,12 +24,11 @@ import { useTranslation } from 'react-i18next';
 
 import {
   getSettings,
-  saveSettings,
+  updateSettings,
   getAutoLaunchStatus,
   setAutoLaunch,
   restartApp,
   testProxyConnection,
-  type AppSettings,
 } from '@/services/settingsApi';
 import type { Language } from '@/i18n';
 import { clearTokenStatsCache } from '@/services/tokenStatsApi';
@@ -39,6 +38,7 @@ import { useSettingsStore } from '@/stores';
 import { useAppStore } from '@/stores/appStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useUpdateManager } from '@/hooks/useUpdateManager';
+import { useKeepAlive } from '@/components/layout/KeepAliveOutlet';
 import pkg from '../../../package.json';
 import styles from './SettingsPage.module.less';
 
@@ -56,6 +56,7 @@ const SettingsPage: React.FC = () => {
   const { t } = useTranslation();
   const { initSettings } = useSettingsStore();
   const { setMode } = useThemeStore();
+  const { isActive } = useKeepAlive();
   const { checkNow, checking } = useUpdateManager();
   const [loading, setLoading] = React.useState(false);
   const [initLoading, setInitLoading] = React.useState(true);
@@ -65,7 +66,7 @@ const SettingsPage: React.FC = () => {
   const [appDataDir, setAppDataDir] = React.useState('');
   const [testingProxy, setTestingProxy] = React.useState(false);
   const [clearingCache, setClearingCache] = React.useState(false);
-  const loadedSettingsRef = React.useRef<AppSettings | null>(null);
+  const [backupBusy, setBackupBusy] = React.useState(false);
   const [appSettings, setAppSettings] = React.useState({
     language: 'zh-CN',
     theme: 'system' as 'light' | 'dark' | 'system',
@@ -85,8 +86,7 @@ const SettingsPage: React.FC = () => {
     { key: 'storage', labelKey: 'settings.categoryStorage', icon: <DatabaseOutlined /> },
   ];
 
-  React.useEffect(() => {
-    const load = async () => {
+  const loadSettings = React.useCallback(async () => {
       try {
         const [s, autoStatus, dataDir] = await Promise.all([
           getSettings(),
@@ -100,32 +100,35 @@ const SettingsPage: React.FC = () => {
           theme: (s.theme as 'light' | 'dark' | 'system') || 'system',
           proxyMode: (s.proxy_mode as 'direct' | 'custom' | 'system') || 'system',
           proxyUrl: s.proxy_url || '',
-          launchOnStartup: s.launch_on_startup ?? true,
+          // The registry/desktop entry is the runtime source of truth. Keeping
+          // the editable snapshot aligned avoids a later Save writing a stale
+          // database flag back over the actual OS state.
+          launchOnStartup: autoStatus ?? s.launch_on_startup ?? true,
           minimizeToTray: s.minimize_to_tray_on_close ?? true,
           startMinimized: s.start_minimized ?? false,
           autoCheckUpdate: s.auto_check_update ?? true,
         });
         setAutoLaunchStatus(autoStatus);
         setAppDataDir(dataDir || '');
-        // Keep the full loaded record so a later save preserves fields this page
-        // does not manage (legacy current_module/current_sub_tab/visible_tabs/
-        // sidebar_hidden_by_page) instead of overwriting them with defaults.
-        loadedSettingsRef.current = s;
       } catch (error) {
         console.error('Failed to load settings:', error);
       } finally {
         setInitLoading(false);
       }
-    };
-    void load();
   }, []);
+
+  const wasActiveRef = React.useRef(false);
+  React.useEffect(() => {
+    if (isActive && !wasActiveRef.current) {
+      void loadSettings();
+    }
+    wasActiveRef.current = isActive;
+  }, [isActive, loadSettings]);
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      const loaded = loadedSettingsRef.current;
-      await saveSettings({
-        // Fields this page manages.
+      await updateSettings({
         language: appSettings.language,
         proxy_mode: appSettings.proxyMode,
         proxy_url: appSettings.proxyUrl,
@@ -134,14 +137,6 @@ const SettingsPage: React.FC = () => {
         minimize_to_tray_on_close: appSettings.minimizeToTray,
         start_minimized: appSettings.startMinimized,
         auto_check_update: appSettings.autoCheckUpdate,
-        // Legacy fields this page does not manage: preserve whatever is stored
-        // instead of clobbering it with hardcoded defaults.
-        current_module: loaded?.current_module ?? 'coding',
-        current_sub_tab: loaded?.current_sub_tab ?? 'pi',
-        visible_tabs: loaded?.visible_tabs?.length
-          ? loaded.visible_tabs
-          : ['pi', 'skills', 'mcp'],
-        sidebar_hidden_by_page: loaded?.sidebar_hidden_by_page ?? { pi: false },
       });
       setMode(appSettings.theme);
       // 语言保存后立即同步到全局 store，界面无需重启即可切换语言
@@ -360,6 +355,7 @@ const SettingsPage: React.FC = () => {
     setClearingCache(true);
     try {
       await clearTokenStatsCache();
+      window.dispatchEvent(new CustomEvent('token-stats-cache-cleared'));
       message.success(t('settings.clearCacheSuccess'));
     } catch (error) {
       console.error('Failed to clear cache:', error);
@@ -369,6 +365,8 @@ const SettingsPage: React.FC = () => {
   };
 
   const handleExportBackup = async () => {
+    if (backupBusy) return;
+    setBackupBusy(true);
     try {
       const selected = await openDialog({ directory: true, multiple: false });
       if (!selected || Array.isArray(selected)) {
@@ -379,10 +377,14 @@ const SettingsPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to export backup:', error);
       message.error(t('common.error'));
+    } finally {
+      setBackupBusy(false);
     }
   };
 
   const handleImportBackup = async () => {
+    if (backupBusy) return;
+    setBackupBusy(true);
     try {
       const selected = await openDialog({
         directory: false,
@@ -403,6 +405,8 @@ const SettingsPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to import backup:', error);
       message.error(t('common.error'));
+    } finally {
+      setBackupBusy(false);
     }
   };
 
@@ -428,10 +432,10 @@ const SettingsPage: React.FC = () => {
             <Text className={styles.switchHint}>{t('settings.backupHint')}</Text>
           </div>
           <Space>
-            <Button onClick={() => void handleExportBackup()}>
+            <Button loading={backupBusy} onClick={() => void handleExportBackup()}>
               {t('settings.backupExport')}
             </Button>
-            <Button onClick={() => void handleImportBackup()}>
+            <Button loading={backupBusy} onClick={() => void handleImportBackup()}>
               {t('settings.backupImport')}
             </Button>
           </Space>

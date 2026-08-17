@@ -18,15 +18,19 @@ export function useSkills() {
 
   // Listen for skills-changed events from tray
   React.useEffect(() => {
-    const unlisten = listen<string>('skills-changed', (event) => {
+    let disposed = false;
+    let cleanup: (() => void) | undefined;
+    void listen<string>('skills-changed', (event) => {
       if (event.payload === 'tray') {
-        store.loadSkills();
+        void store.loadSkills();
       }
+    }).then((unlisten) => {
+      if (disposed) unlisten(); else cleanup = unlisten;
+    }).catch((error) => {
+      console.error('Failed to listen for Skills changes:', error);
     });
 
-    return () => {
-      unlisten.then((fn) => fn());
-    };
+    return () => { disposed = true; cleanup?.(); };
   }, [store.loadSkills]);
 
   // Format relative time

@@ -90,7 +90,13 @@ export const ImportJsonModal: React.FC<ImportJsonModalProps> = ({
     }
 
     try {
+      const seenNames = new Set<string>();
       const result: ParsedServer[] = parseMcpServersFromJsonValue(jsonValue).map((server) => {
+        const dedupeKey = server.name.trim().toLocaleLowerCase();
+        if (seenNames.has(dedupeKey)) {
+          throw new Error(`${t('mcp.duplicateName.title')}: ${server.name}`);
+        }
+        seenNames.add(dedupeKey);
         const existing = servers.find((s) => s.name === server.name);
 
         return {

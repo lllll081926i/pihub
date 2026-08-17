@@ -269,9 +269,13 @@ const PiProviderSection: React.FC<PiProviderSectionProps> = ({
     try {
       let nextConfig: PiRuntimeConfig | null = null;
       const shouldSaveCredential = Object.keys(credentialJson).length > 0;
+      const shouldClearCredential = !shouldSaveCredential
+        && Boolean(providerModal.provider?.sources.includes('auth_json'));
       if (shouldSaveCredential) {
         const nextCredentialJson = { ...credentialJson };
         nextConfig = await savePiAuthProvider({ providerKey, credential: nextCredentialJson });
+      } else if (shouldClearCredential) {
+        nextConfig = await deletePiRuntimeProvider(providerKey, 'credential');
       }
       const nextProviderConfigJson = { ...providerConfigJson };
       setOptionalStringField(nextProviderConfigJson, 'name', values.displayName);

@@ -71,6 +71,7 @@ export const useUpdateManager = (): UpdateManagerValue => {
         duration: 3,
       });
     } catch (error) {
+      updatePromptShown = false;
       const errorMessage = error instanceof Error ? error.message : String(error);
       notification.error({
         key: UPDATE_NOTIFICATION_KEY,
@@ -104,7 +105,10 @@ export const useUpdateManager = (): UpdateManagerValue => {
           <Button
             size="small"
             type="text"
-            onClick={() => notification.destroy(UPDATE_NOTIFICATION_KEY)}
+            onClick={() => {
+              updatePromptShown = false;
+              notification.destroy(UPDATE_NOTIFICATION_KEY);
+            }}
           >
             {t('update.later')}
           </Button>

@@ -38,6 +38,12 @@
   50% { opacity: 0.3; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .refreshingHint::before {
+    animation: none;
+  }
+}
+
 .title {
   margin: 0 !important;
   font-size: 20px;

@@ -1,15 +1,19 @@
-import type { ComponentType } from 'react';
-import { PiConfigPage, PiExtensionsPage, PiOtherPage, TokenStatsPage } from '@/features/coding';
-import SettingsPage from '@/features/settings/SettingsPage';
-import { SkillsPage } from '@/features/coding/skills';
-import { McpPage } from '@/features/coding/mcp';
-import {
-  PiSessionDetailPage,
-} from '@/features/coding/shared/sessionManager/detail/SessionDetailPage';
+import React, { lazy } from 'react';
+
+const PiConfigPage = lazy(() => import('@/features/coding/pi/pages/PiConfigPage'));
+const PiExtensionsPage = lazy(() => import('@/features/coding/pi/pages/PiExtensionsPage'));
+const PiOtherPage = lazy(() => import('@/features/coding/pi/pages/PiOtherPage'));
+const TokenStatsPage = lazy(() => import('@/features/coding/pi/pages/TokenStatsPage'));
+const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'));
+const SkillsPage = lazy(() => import('@/features/coding/skills/pages/SkillsPage'));
+const McpPage = lazy(() => import('@/features/coding/mcp/pages/McpPage'));
+const PiSessionDetailPage = lazy(() => import('@/features/coding/shared/sessionManager/detail/SessionDetailPage').then((module) => ({
+  default: module.PiSessionDetailPage,
+})));
 
 export interface RouteEntry {
   path: string;
-  component: ComponentType;
+  component: React.ComponentType;
   chrome?: RouteChromeConfig;
 }
 

@@ -61,8 +61,21 @@ test('buildFetchedPiModel falls back to upstream fields without preset', () => {
   assert.deepEqual(model, {
     id: 'custom-model',
     name: 'Custom Model',
+    reasoning: true,
+    input: ['text'],
     contextWindow: 256000,
   });
+});
+
+test('buildPiModelFromPreset applies thinking and text defaults when metadata is absent', () => {
+  const model = buildPiModelFromPreset(
+    { id: 'custom', name: 'Custom' },
+    'custom',
+    'custom',
+  );
+
+  assert.equal(model.reasoning, true);
+  assert.deepEqual(model.input, ['text']);
 });
 
 test('piApiToSdkName maps known Pi APIs', () => {

@@ -232,10 +232,10 @@ export const DailyCompositionChart: React.FC<DailyCompositionChartProps> = ({ da
         },
       },
       series: [
-        barSeries(t('tokenStats.inputTokens'), '#1677ff', (day) => day.inputTokens),
-        barSeries(t('tokenStats.outputTokens'), '#36cfc9', (day) => day.outputTokens),
-        barSeries(t('tokenStats.cacheReadLabel'), '#73d13d', (day) => day.cacheReadTokens),
-        barSeries(t('tokenStats.cacheWriteLabel'), '#ffc53d', (day) => day.cacheWriteTokens),
+        barSeries(t('tokenStats.inputTokens'), palette.series[0], (day) => day.inputTokens),
+        barSeries(t('tokenStats.outputTokens'), palette.series[1], (day) => day.outputTokens),
+        barSeries(t('tokenStats.cacheReadLabel'), palette.series[2], (day) => day.cacheReadTokens),
+        barSeries(t('tokenStats.cacheWriteLabel'), palette.series[3], (day) => day.cacheWriteTokens),
       ],
       animationDuration: prefersReducedMotion ? 0 : 400,
     };

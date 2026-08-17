@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import type { McpServer, McpTool, McpScanResult } from '../types';
 import * as mcpApi from '../services/mcpApi';
 
+let serversRequestId = 0;
+let toolsRequestId = 0;
+
 interface McpState {
   servers: McpServer[];
   tools: McpTool[];
@@ -36,21 +39,29 @@ export const useMcpStore = create<McpState>()((set) => ({
   isImportJsonModalOpen: false,
 
   fetchServers: async () => {
+    const requestId = ++serversRequestId;
     set({ loading: true });
     try {
       const servers = await mcpApi.listMcpServers();
-      set({ servers });
+      if (requestId === serversRequestId) {
+        set({ servers });
+      }
     } catch (error) {
       console.error('Failed to fetch MCP servers:', error);
     } finally {
-      set({ loading: false });
+      if (requestId === serversRequestId) {
+        set({ loading: false });
+      }
     }
   },
 
   fetchTools: async () => {
+    const requestId = ++toolsRequestId;
     try {
       const tools = await mcpApi.getMcpTools();
-      set({ tools });
+      if (requestId === toolsRequestId) {
+        set({ tools });
+      }
     } catch (error) {
       console.error('Failed to fetch MCP tools:', error);
     }

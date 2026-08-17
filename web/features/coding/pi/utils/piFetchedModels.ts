@@ -29,7 +29,9 @@ export const buildPiModelFromPreset = (
   modelId: string,
   fallbackName: string,
 ): Record<string, unknown> => {
-  const inputTypes = (preset.modalities?.input ?? []).filter((inputType) => PI_INPUT_TYPES.has(inputType));
+  const inputTypes = preset.modalities?.input === undefined
+    ? ['text']
+    : preset.modalities.input.filter((inputType) => PI_INPUT_TYPES.has(inputType));
   const cost = asRecord(preset.cost);
   const piCost: Record<string, number> = {};
   const inputCost = getNumberField(cost, 'input');
@@ -53,7 +55,9 @@ export const buildPiModelFromPreset = (
   return {
     id: modelId,
     name: preset.name || fallbackName,
-    ...(preset.reasoning !== undefined ? { reasoning: preset.reasoning } : {}),
+    // Missing metadata uses PiHub's baseline model capabilities. Explicit
+    // provider metadata remains authoritative when it is present.
+    reasoning: preset.reasoning ?? true,
     ...(inputTypes.length > 0 ? { input: inputTypes } : {}),
     ...(preset.contextLimit ? { contextWindow: preset.contextLimit } : {}),
     ...(preset.outputLimit ? { maxTokens: preset.outputLimit } : {}),
@@ -80,6 +84,8 @@ export const buildFetchedPiModel = (
   return {
     id: fetchedModel.id,
     ...(fetchedModel.name ? { name: fetchedModel.name } : {}),
+    reasoning: true,
+    input: ['text'],
     // 未匹配预设（即未手动选择）的模型默认 256k 上下文
     contextWindow: 256000,
   };

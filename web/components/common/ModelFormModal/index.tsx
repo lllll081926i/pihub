@@ -338,24 +338,31 @@ const ModelFormModal: React.FC<ModelFormModalProps> = ({
             setOutputModalities([]);
           }
         } else {
-          setInputModalities([]);
-          setOutputModalities([]);
+          setInputModalities(showModalities || showInputTypes ? ['text'] : []);
+          setOutputModalities(showModalities ? ['text'] : []);
         }
 
-        if (showInputTypes && initialValues.inputTypes) {
-          try {
-            const parsed = JSON.parse(initialValues.inputTypes);
-            setInputModalities(Array.isArray(parsed) ? parsed : []);
-          } catch {
-            setInputModalities([]);
+        if (showInputTypes) {
+          if (initialValues.inputTypes !== undefined) {
+            try {
+              const parsed = JSON.parse(initialValues.inputTypes || '[]');
+              setInputModalities(Array.isArray(parsed) ? parsed : []);
+            } catch {
+              setInputModalities([]);
+            }
+          } else if (!showModalities) {
+            // Text is Pi's baseline input capability. Only an explicit
+            // inputTypes value should opt a model out of it.
+            setInputModalities(['text']);
           }
         }
         
         setAdvancedExpanded(shouldExpand);
 
-        // Set capability fields (default to false when editing/copying existing model without values)
+        // Missing capability metadata uses the baseline Pi defaults. Explicit
+        // false remains respected for providers that declare a limitation.
         if (showModalities || showReasoning) {
-          setCapReasoning(initialValues.reasoning !== undefined ? initialValues.reasoning : false);
+          setCapReasoning(initialValues.reasoning !== undefined ? initialValues.reasoning : true);
         }
         if (showModalities) {
           setCapAttachment(initialValues.attachment !== undefined ? initialValues.attachment : false);
@@ -374,8 +381,8 @@ const ModelFormModal: React.FC<ModelFormModalProps> = ({
         setThinkingLevelMapValid(true);
         setJsonCompat({});
         setCompatValid(true);
-        setInputModalities([]);
-        setOutputModalities([]);
+        setInputModalities(showModalities || showInputTypes ? ['text'] : []);
+        setOutputModalities(showModalities ? ['text'] : []);
         setAdvancedExpanded(true);
         setCapReasoning(true);
         setCapAttachment(false);

@@ -77,6 +77,10 @@ export function useSkillActions({ allTools }: UseSkillActionsOptions): UseSkillA
   const [actionLoading, setActionLoading] = React.useState(false);
   const [updatingSkillIds, setUpdatingSkillIds] = React.useState<string[]>([]);
 
+  const reconcileAfterPartialMutation = React.useCallback(async () => {
+    await Promise.allSettled([refresh(), refreshTrayMenu()]);
+  }, [refresh]);
+
   const skillToDelete = deleteSkillId
     ? skills.find((s) => s.id === deleteSkillId)
     : undefined;
@@ -115,12 +119,13 @@ export function useSkillActions({ allTools }: UseSkillActionsOptions): UseSkillA
           }
         }
       } else {
+        await reconcileAfterPartialMutation();
         showGitError(errMsg, t, allTools);
       }
     } finally {
       setActionLoading(false);
     }
-  }, [allTools, t, refresh]);
+  }, [allTools, reconcileAfterPartialMutation, t, refresh]);
 
   const handleUpdate = React.useCallback(async (skill: ManagedSkill) => {
     if (updatingSkillIds.includes(skill.id)) {
@@ -131,11 +136,12 @@ export function useSkillActions({ allTools }: UseSkillActionsOptions): UseSkillA
     try {
       await updateSkill(skill);
     } catch (error) {
+      await reconcileAfterPartialMutation();
       showGitError(String(error), t, allTools);
     } finally {
       setUpdatingSkillIds((prev) => prev.filter((id) => id !== skill.id));
     }
-  }, [allTools, t, updateSkill, updatingSkillIds]);
+  }, [allTools, reconcileAfterPartialMutation, t, updateSkill, updatingSkillIds]);
 
   const handleDelete = React.useCallback((skillId: string) => {
     setDeleteSkillId(skillId);
@@ -149,6 +155,7 @@ export function useSkillActions({ allTools }: UseSkillActionsOptions): UseSkillA
       setDeleteSkillId(null);
       await refreshTrayMenu();
     } catch (error) {
+      await reconcileAfterPartialMutation();
       showGitError(String(error), t, allTools);
     } finally {
       setActionLoading(false);
@@ -195,11 +202,12 @@ export function useSkillActions({ allTools }: UseSkillActionsOptions): UseSkillA
       await refresh();
       message.success(t('skills.batch.refreshSuccess', { count: skillIds.length }));
     } catch (error) {
+      await reconcileAfterPartialMutation();
       showGitError(String(error), t, allTools);
     } finally {
       setActionLoading(false);
     }
-  }, [refresh, t, allTools]);
+  }, [refresh, reconcileAfterPartialMutation, t, allTools]);
 
   // Batch delete - trigger confirmation
   const handleBatchDelete = React.useCallback((skillIds: string[]) => {
@@ -219,11 +227,12 @@ export function useSkillActions({ allTools }: UseSkillActionsOptions): UseSkillA
       message.success(t('skills.batch.deleteSuccess', { count: batchDeleteIds.length }));
       setBatchDeleteIds([]);
     } catch (error) {
+      await reconcileAfterPartialMutation();
       showGitError(String(error), t, allTools);
     } finally {
       setActionLoading(false);
     }
-  }, [batchDeleteIds, refresh, t, allTools]);
+  }, [batchDeleteIds, refresh, reconcileAfterPartialMutation, t, allTools]);
 
   // Batch add tool sync
   const handleBatchAddTool = React.useCallback(async (
@@ -257,12 +266,13 @@ export function useSkillActions({ allTools }: UseSkillActionsOptions): UseSkillA
       }
       return true;
     } catch (error) {
+      await reconcileAfterPartialMutation();
       showGitError(String(error), t, allTools);
       return false;
     } finally {
       setActionLoading(false);
     }
-  }, [skills, refresh, t, allTools]);
+  }, [skills, refresh, reconcileAfterPartialMutation, t, allTools]);
 
   // Batch remove tool sync
   const handleBatchRemoveTool = React.useCallback(async (
@@ -289,12 +299,13 @@ export function useSkillActions({ allTools }: UseSkillActionsOptions): UseSkillA
       }
       return true;
     } catch (error) {
+      await reconcileAfterPartialMutation();
       showGitError(String(error), t, allTools);
       return false;
     } finally {
       setActionLoading(false);
     }
-  }, [skills, refresh, t, allTools]);
+  }, [skills, refresh, reconcileAfterPartialMutation, t, allTools]);
 
   const handleBatchSetGroup = React.useCallback(async (
     skillIds: string[],
@@ -311,12 +322,13 @@ export function useSkillActions({ allTools }: UseSkillActionsOptions): UseSkillA
       message.success(t('skills.batch.setGroupSuccess', { count: skillIds.length }));
       return true;
     } catch (error) {
+      await reconcileAfterPartialMutation();
       message.error(String(error));
       return false;
     } finally {
       setActionLoading(false);
     }
-  }, [refresh, t]);
+  }, [reconcileAfterPartialMutation, refresh, t]);
 
   const handleBatchSetManagementEnabled = React.useCallback(async (
     skillIds: string[],
@@ -361,12 +373,13 @@ export function useSkillActions({ allTools }: UseSkillActionsOptions): UseSkillA
       }
       return true;
     } catch (error) {
+      await reconcileAfterPartialMutation();
       showGitError(String(error), t, allTools);
       return false;
     } finally {
       setActionLoading(false);
     }
-  }, [allTools, refresh, skills, t]);
+  }, [allTools, reconcileAfterPartialMutation, refresh, skills, t]);
 
   const handleSetManagementEnabled = React.useCallback(async (
     skill: ManagedSkill,
@@ -386,12 +399,13 @@ export function useSkillActions({ allTools }: UseSkillActionsOptions): UseSkillA
       message.success(enabled ? t('skills.enabledSuccess') : t('skills.disabledSuccess'));
       return true;
     } catch (error) {
+      await reconcileAfterPartialMutation();
       showGitError(String(error), t, allTools);
       return false;
     } finally {
       setActionLoading(false);
     }
-  }, [allTools, refresh, t]);
+  }, [allTools, reconcileAfterPartialMutation, refresh, t]);
 
   return {
     actionLoading,

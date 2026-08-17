@@ -58,9 +58,9 @@ export interface UpdateMcpServerInput {
   server_type?: 'stdio' | 'http' | 'sse';
   server_config?: StdioConfig | HttpConfig;
   enabled_tools?: string[];
-  description?: string;
+  description?: string | null;
   tags?: string[];
-  timeout?: number;
+  timeout?: number | null;
 }
 
 export interface McpSyncResult {
