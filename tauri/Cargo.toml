@@ -1,6 +1,6 @@
 [package]
 name = "pihub"
-version = "1.4.0"
+version = "1.4.1"
 description = "PiHub - Personal AI Tools Collection"
 authors = ["you"]
 edition = "2021"
@@ -17,7 +17,6 @@ tauri = { version = "2.9.5", features = ["protocol-asset", "tray-icon", "image-p
 tauri-plugin-dialog = "2.6.0"
 tauri-plugin-fs = "2.4.5"
 tauri-plugin-opener = "2.5.3"
-tauri-plugin-os = "2"
 tauri-plugin-shell = "2.3.4"
 tauri-plugin-updater = "2.9.0"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }

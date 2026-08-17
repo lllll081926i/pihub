@@ -9,6 +9,7 @@
 use futures_util::future::join_all;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::Arc;
 
 use super::commands::{
     emit_config_changed, get_pi_auth_path_async, get_pi_models_path_async, models_json_lock,
@@ -232,14 +233,20 @@ pub async fn check_pi_providers(
     }
 
     if let Some(client) = &client {
-        // Probe all providers concurrently; each may follow up with the
+        // Bound network concurrency so a large provider list cannot create a
+        // burst of requests or trigger provider-side rate limits. Each may
+        // still follow up with the
         // suggested URL when the stored one fails, so a suggested fix is only
         // recommended after it actually answers.
+        let limiter = Arc::new(tokio::sync::Semaphore::new(4));
         let probe_futures = items.iter().zip(probe_inputs.iter()).map(
-            |(item, (base_url, api, api_key, headers))| async move {
+            move |(item, (base_url, api, api_key, headers))| {
+                let limiter = limiter.clone();
+                async move {
                 if base_url.is_empty() {
                     return (PiProviderProbeStatus::Skipped, None, false);
                 }
+                let _permit = limiter.acquire_owned().await.ok();
                 let (status, detail) = probe_endpoint(
                     client,
                     base_url,
@@ -267,6 +274,7 @@ pub async fn check_pi_providers(
                     false
                 };
                 (status, detail, suggested_probe_ok)
+                }
             },
         );
         let probe_results = join_all(probe_futures).await;

@@ -980,8 +980,7 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_os::init());
+        .plugin(tauri_plugin_opener::init());
 
     #[cfg(not(test))]
     let builder = builder.plugin(tauri_plugin_dialog::init());
@@ -1485,6 +1484,7 @@ pub fn run() {
             // Settings
             settings::get_settings,
             settings::save_settings,
+            settings::update_settings,
             settings::set_auto_launch,
             settings::get_auto_launch_status,
             settings::restart_app,

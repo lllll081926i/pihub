@@ -5,6 +5,7 @@
 //! Also handles format conversion for tools like OpenCode that use different schemas.
 
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use serde_json::Value;
 
@@ -15,6 +16,12 @@ use crate::coding::{
     file_io, runtime_location,
     tools::{resolve_mcp_config_path_with_db_async, McpFormatConfig, RuntimeTool},
 };
+
+static MCP_CONFIG_WRITE_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+
+fn mcp_config_write_lock() -> &'static tokio::sync::Mutex<()> {
+    MCP_CONFIG_WRITE_LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+}
 
 /// Sync an MCP server to a specific tool's config file
 pub async fn sync_server_to_tool_async(
@@ -143,6 +150,7 @@ async fn sync_server_to_json_async(
     tool_key: &str,
     should_wrap_cmd: bool,
 ) -> Result<(), String> {
+    let _guard = mcp_config_write_lock().lock().await;
     // Read existing config or create new (json5 handles both JSON and JSONC).
     // NotFound is treated as an empty config — no exists() precheck (TOCTOU).
     let mut config: Value = match read_config_text_async(config_path).await? {
@@ -189,6 +197,7 @@ async fn remove_server_from_json_async(
     server_name: &str,
     field: &str,
 ) -> Result<(), String> {
+    let _guard = mcp_config_write_lock().lock().await;
     let Some(content) = read_config_text_async(config_path).await? else {
         return Ok(()); // File does not exist, nothing to remove
     };
@@ -230,6 +239,7 @@ async fn sync_server_to_toml_async(
     tool_key: &str,
     should_wrap_cmd: bool,
 ) -> Result<(), String> {
+    let _guard = mcp_config_write_lock().lock().await;
     use toml_edit::Item;
 
     if field.contains('.') {
@@ -283,6 +293,7 @@ async fn remove_server_from_toml_async(
     server_name: &str,
     field: &str,
 ) -> Result<(), String> {
+    let _guard = mcp_config_write_lock().lock().await;
     if field.contains('.') {
         return Err(format!(
             "Nested TOML MCP field paths are not supported: {}",

@@ -35,6 +35,14 @@ fn normalize_optional_text(value: Option<String>) -> Option<String> {
     })
 }
 
+fn normalize_server_name(value: &str) -> Result<String, String> {
+    let name = value.trim();
+    if name.is_empty() {
+        return Err("MCP server name is required".to_string());
+    }
+    Ok(name.to_string())
+}
+
 // ==================== MCP Server CRUD ====================
 
 /// List all MCP servers
@@ -85,7 +93,7 @@ pub async fn mcp_create_server<R: Runtime>(
     let now = now_ms();
     let server = McpServer {
         id: String::new(), // Will be assigned by upsert
-        name: input.name.clone(),
+        name: normalize_server_name(&input.name)?,
         server_type: input.server_type.clone(),
         server_config: input.server_config.clone(),
         enabled_tools: input.enabled_tools.clone(),
@@ -99,6 +107,14 @@ pub async fn mcp_create_server<R: Runtime>(
         created_at: now,
         updated_at: now,
     };
+
+    let existing_servers = mcp_store::get_mcp_servers(&state).await?;
+    if existing_servers
+        .iter()
+        .any(|candidate| candidate.name.eq_ignore_ascii_case(&server.name))
+    {
+        return Err(format!("MCP server name already exists: {}", server.name));
+    }
 
     let id = mcp_store::upsert_mcp_server(&state, &server).await?;
 
@@ -170,9 +186,11 @@ pub async fn mcp_update_server<R: Runtime>(
         .await?
         .ok_or_else(|| format!("MCP server not found: {}", serverId))?;
 
+    let previous_server = server.clone();
+
     // Apply updates
     if let Some(name) = input.name {
-        server.name = name;
+        server.name = normalize_server_name(&name)?;
     }
     if let Some(server_type) = input.server_type {
         server.server_type = server_type;
@@ -184,21 +202,51 @@ pub async fn mcp_update_server<R: Runtime>(
         server.enabled_tools = enabled_tools;
     }
     if let Some(description) = input.description {
-        server.description = Some(description);
+        server.description = normalize_optional_text(description);
     }
     if let Some(tags) = input.tags {
         server.tags = tags;
     }
-    server.timeout = input.timeout;
+    if let Some(timeout) = input.timeout {
+        server.timeout = timeout;
+    }
     server.updated_at = now_ms();
 
-    mcp_store::upsert_mcp_server(&state, &server).await?;
+    let existing_servers = mcp_store::get_mcp_servers(&state).await?;
+    if existing_servers.iter().any(|candidate| {
+        candidate.id != serverId && candidate.name.eq_ignore_ascii_case(&server.name)
+    }) {
+        return Err(format!("MCP server name already exists: {}", server.name));
+    }
 
-    // Re-sync to all enabled tools
+    // Remove stale projections before writing the replacement. This covers a
+    // rename and tools removed from the enabled set.
+    let old_tools: std::collections::BTreeSet<String> = previous_server
+        .enabled_tools
+        .iter()
+        .cloned()
+        .collect();
+    let next_tools: std::collections::BTreeSet<String> = server
+        .enabled_tools
+        .iter()
+        .cloned()
+        .collect();
+    let needs_old_name_cleanup = previous_server.name != server.name;
     let custom_tools = custom_store::get_custom_tools(&state)
         .await
         .unwrap_or_default();
     let db = state.db();
+    for tool_key in old_tools.iter().filter(|key| {
+        needs_old_name_cleanup || !next_tools.contains(*key)
+    }) {
+        if let Some(tool) = runtime_tool_by_key(tool_key, &custom_tools) {
+            remove_server_from_tool_async(&db, &previous_server.name, &tool).await?;
+        }
+    }
+
+    mcp_store::upsert_mcp_server(&state, &server).await?;
+
+    // Re-sync to all enabled tools
     for tool_key in &server.enabled_tools {
         if let Some(tool) = runtime_tool_by_key(tool_key, &custom_tools) {
             if is_tool_installed_with_db_async(&db, &tool).await {
@@ -265,7 +313,7 @@ pub async fn mcp_delete_server<R: Runtime>(
         let db = state.db();
         for tool_key in &server.enabled_tools {
             if let Some(tool) = runtime_tool_by_key(tool_key, &custom_tools) {
-                let _ = remove_server_from_tool_async(&db, &server.name, &tool).await;
+                remove_server_from_tool_async(&db, &server.name, &tool).await?;
             }
         }
     }
@@ -300,8 +348,13 @@ pub async fn mcp_toggle_tool<R: Runtime>(
         .await
         .unwrap_or_default();
     let db = state.db();
-    let tool = runtime_tool_by_key(&toolKey, &custom_tools)
-        .ok_or_else(|| format!("Tool not found: {}", toolKey))?;
+    let tool = match runtime_tool_by_key(&toolKey, &custom_tools) {
+        Some(tool) => tool,
+        None => {
+            let _ = mcp_store::toggle_tool_enabled(&state, &serverId, &toolKey).await;
+            return Err(format!("Tool not found: {}", toolKey));
+        }
+    };
 
     // Sync or remove based on new state
     if is_enabled {
@@ -318,13 +371,21 @@ pub async fn mcp_toggle_tool<R: Runtime>(
                     error_message: Some(e.clone()),
                 };
                 mcp_store::update_sync_detail(&state, &serverId, &detail).await?;
+                let _ = mcp_store::toggle_tool_enabled(&state, &serverId, &toolKey).await;
+                let _ = mcp_store::delete_sync_detail(&state, &serverId, &toolKey).await;
                 return Err(e);
             }
         }
     } else {
         // Remove from tool config
-        let _ = remove_server_from_tool_async(&db, &server.name, &tool).await;
-        mcp_store::delete_sync_detail(&state, &serverId, &toolKey).await?;
+        if let Err(error) = remove_server_from_tool_async(&db, &server.name, &tool).await {
+            let _ = mcp_store::toggle_tool_enabled(&state, &serverId, &toolKey).await;
+            return Err(error);
+        }
+        if let Err(error) = mcp_store::delete_sync_detail(&state, &serverId, &toolKey).await {
+            let _ = mcp_store::toggle_tool_enabled(&state, &serverId, &toolKey).await;
+            return Err(error);
+        }
     }
 
     // Emit config-changed and mcp-changed events

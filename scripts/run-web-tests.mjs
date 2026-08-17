@@ -58,11 +58,20 @@ const testStream = run({
 
 testStream.compose(spec).pipe(process.stdout);
 
-const summary = await new Promise((resolve, reject) => {
-  testStream.once('test:summary', resolve);
+let hasFailedTest = false;
+const completion = new Promise((resolve, reject) => {
+  testStream.on('test:summary', (summary) => {
+    // node:test emits one summary per input file when `files` is used.
+    // Aggregate every summary instead of resolving on the first file.
+    if (summary.success === false) {
+      hasFailedTest = true;
+    }
+  });
+  testStream.once('end', resolve);
   testStream.once('error', reject);
 });
 
-if (summary.success === false) {
+await completion;
+if (hasFailedTest) {
   process.exitCode = 1;
 }

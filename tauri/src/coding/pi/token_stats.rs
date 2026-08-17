@@ -256,7 +256,9 @@ fn write_cached_stats(db: &crate::db::SqliteDbState, result: &TokenStatsResult) 
 async fn scan_and_cache_stats(db: &crate::db::SqliteDbState) -> Result<TokenStatsResult, String> {
     // 与会话管理共用同一份运行时位置解析（runtime location + settings.json sessionDir）
     let root = crate::coding::session_manager::resolve_pi_sessions_root_with_db(db).await?;
-    let result = compute_token_stats(&root)?;
+    let result = tauri::async_runtime::spawn_blocking(move || compute_token_stats(&root))
+        .await
+        .map_err(|error| format!("Failed to join token stats scan: {error}"))??;
     write_cached_stats(db, &result);
     Ok(result)
 }
@@ -311,7 +313,7 @@ fn now_rfc3339_like() -> String {
     )
 }
 
-/// Recursively collect .jsonl/.json session files under `root`.
+/// Recursively collect Pi session JSONL files under `root`.
 /// Pi stores sessions in per-project subdirectories, so a top-level read_dir
 /// would miss every real session file.
 fn collect_session_files(root: &std::path::Path, files: &mut Vec<PathBuf>) {
@@ -325,7 +327,7 @@ fn collect_session_files(root: &std::path::Path, files: &mut Vec<PathBuf>) {
         } else if path
             .extension()
             .and_then(|ext| ext.to_str())
-            .map(|ext| ext == "jsonl" || ext == "json")
+            .map(|ext| ext == "jsonl")
             .unwrap_or(false)
         {
             files.push(path);
@@ -401,7 +403,9 @@ pub fn compute_token_stats(root: &std::path::Path) -> Result<TokenStatsResult, S
     };
     // Cache read tokens already saved us from re-sending them as input.
     // Rough estimate: cache read is ~1/10th the input price on many providers.
-    let cache_savings_usd = total_cache_read_tokens as f64 * 0.00000001;
+    // Cache pricing varies by provider/model. Do not present a fabricated
+    // dollar amount when the session record does not contain a price source.
+    let cache_savings_usd = 0.0;
 
     Ok(TokenStatsResult {
         total_input_tokens,

@@ -1,5 +1,6 @@
 use super::types::AppSettings;
 use serde_json::Value;
+use std::collections::HashMap;
 
 /// Convert database JSON Value to AppSettings with fault tolerance
 pub fn from_db_value(value: Value) -> AppSettings {
@@ -15,6 +16,7 @@ pub fn from_db_value(value: Value) -> AppSettings {
         theme: get_str(&value, "theme", "system"),
         auto_check_update: get_bool(&value, "auto_check_update", true),
         visible_tabs: get_string_array(&value, "visible_tabs", &["pi", "skills", "mcp"]),
+        sidebar_hidden_by_page: get_bool_map(&value, "sidebar_hidden_by_page"),
     }
 }
 
@@ -32,7 +34,22 @@ pub fn to_db_value(settings: &AppSettings) -> Value {
         "theme": settings.theme,
         "auto_check_update": settings.auto_check_update,
         "visible_tabs": settings.visible_tabs,
+        "sidebar_hidden_by_page": settings.sidebar_hidden_by_page,
     })
+}
+
+fn get_bool_map(value: &Value, key: &str) -> HashMap<String, bool> {
+    value
+        .get(key)
+        .and_then(Value::as_object)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|(key, value)| value.as_bool().map(|value| (key.clone(), value)))
+                .collect()
+        })
+        .filter(|items: &HashMap<String, bool>| !items.is_empty())
+        .unwrap_or_else(super::types::default_sidebar_hidden_by_page)
 }
 
 fn get_str(value: &Value, key: &str, default: &str) -> String {

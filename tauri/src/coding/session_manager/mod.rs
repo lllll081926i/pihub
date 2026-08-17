@@ -1301,12 +1301,33 @@ fn write_exported_session_file(
         })?;
     }
 
-    std::fs::write(export_path_ref, serialized).map_err(|error| {
+    let file_name = export_path_ref
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("session.json");
+    let temp_path = export_path_ref.with_file_name(format!(".{file_name}.pihub-tmp"));
+    std::fs::write(&temp_path, serialized).map_err(|error| {
         format!(
             "Failed to write exported session file {}: {error}",
             export_path_ref.display()
         )
     })?;
+
+    if let Err(error) = std::fs::rename(&temp_path, export_path_ref) {
+        if error.kind() == std::io::ErrorKind::AlreadyExists {
+            std::fs::remove_file(export_path_ref).map_err(|remove_error| {
+                let _ = std::fs::remove_file(&temp_path);
+                format!("Failed to replace exported session file: {remove_error}")
+            })?;
+            std::fs::rename(&temp_path, export_path_ref).map_err(|rename_error| {
+                let _ = std::fs::remove_file(&temp_path);
+                format!("Failed to finalize exported session file: {rename_error}")
+            })?;
+        } else {
+            let _ = std::fs::remove_file(&temp_path);
+            return Err(format!("Failed to finalize exported session file: {error}"));
+        }
+    }
 
     Ok(())
 }

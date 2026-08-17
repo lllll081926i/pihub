@@ -1,5 +1,5 @@
 use super::store;
-use super::types::AppSettings;
+use super::types::{AppSettings, AppSettingsPatch};
 use crate::auto_launch;
 use crate::db::SqliteDbState;
 use crate::tray;
@@ -28,6 +28,27 @@ pub async fn save_settings(
     Ok(())
 }
 
+/// Atomically update only the supplied fields so independent UI actions do
+/// not overwrite one another with stale full-record snapshots.
+#[tauri::command]
+pub async fn update_settings(
+    sqlite_state: tauri::State<'_, SqliteDbState>,
+    app: tauri::AppHandle,
+    updates: AppSettingsPatch,
+) -> Result<AppSettings, String> {
+    let updated = sqlite_state.with_conn(|conn| {
+        let mut settings = store::load_settings_from_sqlite_conn(conn)?;
+        updates.apply_to(&mut settings);
+        store::save_settings_to_sqlite_conn(conn, &settings)?;
+        Ok(settings)
+    })?;
+
+    if let Err(err) = tray::refresh_tray_menus(&app).await {
+        log::warn!("Failed to refresh tray after updating settings: {err}");
+    }
+    Ok(updated)
+}
+
 /// Set auto launch on startup
 #[tauri::command]
 pub async fn set_auto_launch(
@@ -39,6 +60,7 @@ pub async fn set_auto_launch(
     // new value before the registry is touched. A later registry failure then
     // self-heals on next launch instead of resurrecting a stale entry.
     let mut settings = store::load_settings_from_sqlite_state(&sqlite_state)?;
+    let previous_enabled = settings.launch_on_startup;
     if settings.launch_on_startup != enabled {
         settings.launch_on_startup = enabled;
         store::save_settings_to_sqlite_state(&sqlite_state, &settings)?;
@@ -46,7 +68,7 @@ pub async fn set_auto_launch(
 
     // Registry mutations block on `reg` CLI calls; keep them off the tokio
     // worker threads.
-    tokio::task::spawn_blocking(move || {
+    let operation = tokio::task::spawn_blocking(move || {
         if enabled {
             auto_launch::enable_auto_launch()
                 .map_err(|e| format!("Failed to enable auto launch: {}", e))
@@ -56,7 +78,14 @@ pub async fn set_auto_launch(
         }
     })
     .await
-    .map_err(|e| format!("Auto launch task failed: {e}"))??;
+    .map_err(|e| format!("Auto launch task failed: {e}"))?;
+    if let Err(error) = operation {
+        let actual_enabled = auto_launch::is_auto_launch_enabled().unwrap_or(previous_enabled);
+        let mut persisted = store::load_settings_from_sqlite_state(&sqlite_state)?;
+        persisted.launch_on_startup = actual_enabled;
+        store::save_settings_to_sqlite_state(&sqlite_state, &persisted)?;
+        return Err(error);
+    }
     Ok(())
 }
 
@@ -145,29 +174,40 @@ pub async fn test_proxy_connection(proxy_url: String) -> Result<(), String> {
 
 /// Export the SQLite database plus manifest to `target_dir`.
 #[tauri::command]
-pub fn export_database_backup(
+pub async fn export_database_backup(
     sqlite_state: tauri::State<'_, SqliteDbState>,
     app: tauri::AppHandle,
     target_dir: String,
 ) -> Result<String, String> {
     let app_version = app.package_info().version.to_string();
-    let manifest = crate::db::backup_commands::export_database_backup_to_dir(
-        &sqlite_state,
-        std::path::Path::new(&target_dir),
-        &app_version,
-    )?;
+    let db = sqlite_state.inner().clone();
+    let manifest = tokio::task::spawn_blocking(move || {
+        crate::db::backup_commands::export_database_backup_to_dir(
+            &db,
+            std::path::Path::new(&target_dir),
+            &app_version,
+        )
+    })
+    .await
+    .map_err(|error| format!("Backup export task failed: {error}"))??;
     serde_json::to_string_pretty(&manifest)
         .map_err(|error| format!("Failed to serialize backup manifest: {error}"))
 }
 
 /// Validate a backup file and stage it for swap on next restart.
 #[tauri::command]
-pub fn import_database_backup(
+pub async fn import_database_backup(
     source_db: String,
 ) -> Result<String, String> {
     let app_data_dir = crate::resolve_app_data_dir()?;
-    let manifest =
-        crate::db::backup_commands::stage_restore(&app_data_dir, std::path::Path::new(&source_db))?;
+    let manifest = tokio::task::spawn_blocking(move || {
+        crate::db::backup_commands::stage_restore(
+            &app_data_dir,
+            std::path::Path::new(&source_db),
+        )
+    })
+    .await
+    .map_err(|error| format!("Backup import task failed: {error}"))??;
     serde_json::to_string_pretty(&manifest)
         .map_err(|error| format!("Failed to serialize backup manifest: {error}"))
 }

@@ -56,4 +56,5 @@
 - 扩展 CLI 失败文案应包含 `pi_cli=<resolved path or wsl -d <distro> -- pi>`；list 成功时 meta 区应能看到同一路径和 `pi --version` 探测结果（探测失败可省略版本）。
 - `settings.json` 中已有 `packages` 时，`read_pi_runtime_config().other_settings` 不返回该字段，`save_pi_other_settings` 也不会删除或覆盖它。
 - Pi 0.80.6 起共享 thinking ladder 是 `off/minimal/low/medium/high/xhigh/max`。PiHub 的前端选项、preset `thinkingLevelMap` 转换和后端校验白名单必须同步维护这七档；缺省的标准档 `off/minimal/low/medium/high` 按 identity mapping 支持，扩展档 `xhigh/max` 必须由模型显式提供非 `null` 映射才算支持。`ultra` 不属于 Pi thinking level，不能加入 Pi settings 或模型映射。
+- Pi 模型编辑表单对缺少能力元数据的模型采用保守的可用默认：`reasoning` 默认 `true`，`inputTypes` 默认包含 `text`；只有模型配置明确写入 `false` 或显式空数组时才覆盖该默认。
 - Fetch Models 命中大小写不同的 preset 时（例如上游 `minimax-m3` / preset `MiniMax-M3`），写入 `models.json` 的 model id 必须仍是上游原文；可运行 `pnpm test:web -- web/test/features/coding/pi/utils/piFetchedModels.test.ts`。

@@ -140,9 +140,13 @@ pub struct UpdateMcpServerInput {
     pub server_type: Option<String>,
     pub server_config: Option<Value>,
     pub enabled_tools: Option<Vec<String>>,
-    pub description: Option<String>,
+    /// `None` means omitted; `Some(None)` explicitly clears the value.
+    #[serde(default)]
+    pub description: Option<Option<String>>,
     pub tags: Option<Vec<String>>,
-    pub timeout: Option<i64>,
+    /// `None` means omitted; `Some(None)` explicitly clears the value.
+    #[serde(default)]
+    pub timeout: Option<Option<i64>>,
 }
 
 /// MCP preferences (singleton record)

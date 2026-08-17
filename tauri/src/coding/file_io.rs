@@ -153,8 +153,23 @@ pub async fn write_all_atomic_async(path: &Path, content: &str) -> io::Result<()
                 return Err(error);
             }
             if let Err(error) = std::fs::rename(&tmp_path, &owned) {
-                let _ = std::fs::remove_file(&tmp_path);
-                return Err(error);
+                // Windows does not replace an existing destination for the
+                // standard rename API. Keep the fast atomic path where it is
+                // supported, then fall back to replace semantics so config
+                // writes do not fail on normal existing files.
+                if error.kind() == io::ErrorKind::AlreadyExists {
+                    if let Err(remove_error) = std::fs::remove_file(&owned) {
+                        let _ = std::fs::remove_file(&tmp_path);
+                        return Err(remove_error);
+                    }
+                    if let Err(rename_error) = std::fs::rename(&tmp_path, &owned) {
+                        let _ = std::fs::remove_file(&tmp_path);
+                        return Err(rename_error);
+                    }
+                } else {
+                    let _ = std::fs::remove_file(&tmp_path);
+                    return Err(error);
+                }
             }
             Ok(())
         }),

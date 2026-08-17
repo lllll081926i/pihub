@@ -440,6 +440,14 @@ pub(crate) fn models_json_lock() -> &'static tokio::sync::Mutex<()> {
     LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
 }
 
+/// Serializes read-modify-write cycles on settings.json and auth.json. Both
+/// files are edited by the page and tray paths and must not lose fields when
+/// commands overlap.
+pub(crate) fn settings_auth_json_lock() -> &'static tokio::sync::Mutex<()> {
+    static LOCK: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+}
+
 #[tauri::command]
 pub async fn get_pi_root_path_info(
     state: tauri::State<'_, SqliteDbState>,
@@ -545,6 +553,7 @@ pub async fn save_pi_settings_config(
     app: tauri::AppHandle,
     input: PiSettingsConfigInput,
 ) -> Result<(), String> {
+    let _guard = settings_auth_json_lock().lock().await;
     let db = state.db();
     let previous_skills_path = runtime_location::get_tool_skills_path_async(&db, "pi").await;
     let existing = get_pi_settings_config(state.clone()).await?;
@@ -611,6 +620,7 @@ pub async fn save_pi_model_settings(
     app: tauri::AppHandle,
     input: PiModelSettingsInput,
 ) -> Result<PiRuntimeConfig, String> {
+    let _guard = settings_auth_json_lock().lock().await;
     let db = state.db();
     let settings_path = get_pi_settings_path_async(&db).await?;
     let mut settings = file_io::read_json_object_or_empty_async(&settings_path).await?;
@@ -674,6 +684,7 @@ pub async fn apply_pi_default_model_internal<R: Runtime>(
     model_id: &str,
     from_tray: bool,
 ) -> Result<(), String> {
+    let _guard = settings_auth_json_lock().lock().await;
     let provider_key = provider_key.trim();
     let model_id = model_id.trim();
     if provider_key.is_empty() {
@@ -720,6 +731,7 @@ pub async fn save_pi_other_settings(
     }
 
     let db = state.db();
+    let _guard = settings_auth_json_lock().lock().await;
     let settings_path = get_pi_settings_path_async(&db).await?;
     let mut settings = file_io::read_json_object_or_empty_async(&settings_path).await?;
     let settings_object = object_mut(&mut settings)?;
@@ -745,6 +757,7 @@ pub async fn save_pi_auth_provider(
     }
 
     let db = state.db();
+    let _guard = settings_auth_json_lock().lock().await;
     let auth_path = get_pi_auth_path_async(&db).await?;
     let mut auth = file_io::read_json_object_or_empty_async(&auth_path).await?;
     object_mut(&mut auth)?.insert(provider_key.to_string(), input.credential);
@@ -823,6 +836,7 @@ pub async fn delete_pi_runtime_provider(
     let db = state.db();
 
     if matches!(scope, PiDeleteScope::Credential | PiDeleteScope::Both) {
+        let _guard = settings_auth_json_lock().lock().await;
         let auth_path = get_pi_auth_path_async(&db).await?;
         let mut auth = file_io::read_json_object_or_empty_async(&auth_path).await?;
         object_mut(&mut auth)?.remove(provider_key);

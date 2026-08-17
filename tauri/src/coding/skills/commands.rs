@@ -1658,7 +1658,7 @@ async fn sync_skill_to_tool_record(
 
     if let Some(existing_target) = previous_target.as_ref() {
         if target_path_changed(&existing_target.target_path, &target) {
-            remove_skill_target_best_effort(skill, source_path, existing_target);
+            remove_skill_target_best_effort(skill, source_path, existing_target)?;
         }
     }
 
@@ -1686,16 +1686,17 @@ fn disabled_previous_tools_for_skill(skill: &Skill) -> Vec<String> {
     }
 }
 
-fn remove_skill_target_best_effort(skill: &Skill, source_path: &Path, target: &SkillTarget) {
-    if let Err(err) = remove_skill_target_checked(source_path, &target.target_path) {
-        log::warn!(
+fn remove_skill_target_best_effort(
+    skill: &Skill,
+    source_path: &Path,
+    target: &SkillTarget,
+) -> Result<(), String> {
+    remove_skill_target_checked(source_path, &target.target_path).map_err(|err| {
+        format!(
             "Failed to clean Skills target '{}' for skill '{}' on '{}': {}",
-            target.target_path,
-            skill.name,
-            target.tool,
-            err
-        );
-    }
+            target.target_path, skill.name, target.tool, err
+        )
+    })
 }
 
 async fn remove_skill_targets_best_effort(
@@ -1705,18 +1706,23 @@ async fn remove_skill_targets_best_effort(
 ) -> Result<(), String> {
     let targets = skill_store::get_skill_targets(state, &skill.id).await?;
     let Some(source_path) = source_path else {
-        if !targets.is_empty() {
-            log::warn!(
-                "Skipped cleaning {} Skills target(s) for '{}' because source path could not be resolved",
-                targets.len(),
-                skill.name
-            );
+        if targets.is_empty() {
+            return Ok(());
         }
-        return Ok(());
+        return Err(format!(
+            "Cannot clean {} Skills target(s) for '{}' because source path could not be resolved",
+            targets.len(), skill.name
+        ));
     };
 
+    let mut failures = Vec::new();
     for target in targets {
-        remove_skill_target_best_effort(skill, source_path, &target);
+        if let Err(error) = remove_skill_target_best_effort(skill, source_path, &target) {
+            failures.push(error);
+        }
+    }
+    if !failures.is_empty() {
+        return Err(failures.join("\n"));
     }
     Ok(())
 }
@@ -1797,9 +1803,10 @@ pub async fn skills_unsync_from_tool<R: Runtime>(
             .await?
             .ok_or_else(|| format!("Skill not found: {}", skillId))?;
         let source_path = resolve_skill_source_path_for_cleanup(&app, &state, &skill).await;
-        if let Some(source_path) = source_path.as_deref() {
-            remove_skill_target_best_effort(&skill, source_path, &target);
-        }
+        let source_path = source_path.as_deref().ok_or_else(|| {
+            format!("Cannot resolve source path for Skill '{}'", skill.name)
+        })?;
+        remove_skill_target_best_effort(&skill, source_path, &target)?;
         skill_store::delete_skill_target(&state, &skillId, &tool).await?;
     }
 
@@ -1908,6 +1915,13 @@ pub async fn skills_delete_managed(
             }
         }
 
+        if !remove_failures.is_empty() {
+            return Err(format!(
+                "Managed record was kept because some tool directories could not be cleaned:\n- {}",
+                remove_failures.join("\n- ")
+            ));
+        }
+
         let default_delete_source = skill.source_type != "central" && uses_default_central_dir;
         let delete_source_files = options
             .map(|options| options.delete_source_files)
@@ -1926,18 +1940,17 @@ pub async fn skills_delete_managed(
                 ));
             }
         }
+        if !remove_failures.is_empty() {
+            return Err(format!(
+                "Managed record was kept because some tool directories could not be cleaned:\n- {}",
+                remove_failures.join("\n- ")
+            ));
+        }
         skill_store::delete_skill(&state, &skillId).await?;
     }
 
     // Emit skills-changed for WSL sync
     let _ = app.emit("skills-changed", "window");
-
-    if !remove_failures.is_empty() {
-        return Err(format!(
-            "Deleted managed record, but some tool directories could not be cleaned:\n- {}",
-            remove_failures.join("\n- ")
-        ));
-    }
 
     Ok(())
 }
@@ -2450,7 +2463,7 @@ async fn reconcile_inventory_skill_tools<R: Runtime>(
             continue;
         }
         if let Some(source_path) = source_path.as_deref() {
-            remove_skill_target_best_effort(&skill, source_path, &target);
+            remove_skill_target_best_effort(&skill, source_path, &target)?;
         }
         skill_store::delete_skill_target(state, skill_id, &target.tool).await?;
     }

@@ -161,7 +161,7 @@ pub fn swap_restore_pending_on_startup(app_data_dir: &Path) -> Result<bool, Stri
     let live_db = app_data_dir.join(SQLITE_DATABASE_FILE);
 
     // 1. Safety backup of the current database before replacement.
-    if live_db.exists() {
+    let safety_backup_path = if live_db.exists() {
         let backup_dir = app_data_dir.join(RESTORE_BACKUP_DIR);
         fs::create_dir_all(&backup_dir)
             .map_err(|error| format!("Failed to create restore backup dir: {error}"))?;
@@ -183,14 +183,43 @@ pub fn swap_restore_pending_on_startup(app_data_dir: &Path) -> Result<bool, Stri
                 return Ok(false);
             }
         }
+        Some(backup_path)
+    } else {
+        None
+    };
+
+    // 2. Validate and stage a second copy before touching the live database.
+    // This keeps the live file intact if the staged file disappears or the
+    // destination volume rejects the copy.
+    validate_backup_file(&staged_db)?;
+    let replacement_path = app_data_dir.join(format!(".{SQLITE_DATABASE_FILE}.restore-tmp"));
+    let _ = fs::remove_file(&replacement_path);
+    fs::copy(&staged_db, &replacement_path)
+        .map_err(|error| format!("Failed to prepare restored database: {error}"))?;
+
+    // Drop sidecar state only after the replacement copy is known to exist.
+    for suffix in ["-wal", "-shm"] {
+        match fs::remove_file(format!("{}{}", live_db.display(), suffix)) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                let _ = fs::remove_file(&replacement_path);
+                return Err(format!("Failed to clear live database sidecar: {error}"));
+            }
+        }
     }
 
-    // 2. Replace live db (drop old WAL/SHM first).
-    for suffix in ["", "-wal", "-shm"] {
-        let _ = fs::remove_file(format!("{}{}", live_db.display(), suffix));
+    // `fs::copy` replaces an existing file on Windows and leaves the old file
+    // untouched when opening the source fails. If the final copy is partial,
+    // restore the safety backup before returning the error.
+    if let Err(error) = fs::copy(&replacement_path, &live_db) {
+        if let Some(backup_path) = safety_backup_path.as_ref() {
+            let _ = fs::copy(backup_path, &live_db);
+        }
+        let _ = fs::remove_file(&replacement_path);
+        return Err(format!("Failed to swap restored database: {error}"));
     }
-    fs::copy(&staged_db, &live_db)
-        .map_err(|error| format!("Failed to swap restored database: {error}"))?;
+    let _ = fs::remove_file(&replacement_path);
 
     // 3. Clear staging.
     let _ = fs::remove_file(&flag_path);
